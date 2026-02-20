@@ -354,25 +354,28 @@ select option{background:var(--surface);}
           <option value="mp4">MP4 — H.264</option>
           <option value="webm-vp9">WebM — VP9</option>
           <option value="webm-vp8">WebM — VP8</option>
+          <option value="gif">GIF — Animated</option>
         </select>
       </div>
-      <div class="row"><span class="lbl">Quality</span>
+      <div class="row" id="quality-row"><span class="lbl">Quality</span>
         <select id="rec-quality">
           <option value="high">High — 25 Mbps</option>
           <option value="med" selected>Medium — 12 Mbps</option>
           <option value="low">Low — 5 Mbps</option>
         </select>
       </div>
+      <div class="row" id="gif-fps-row" style="display:none"><span class="lbl">GIF FPS</span><input type="range" id="gif-fps" min="6" max="24" value="15"><span class="val" id="gif-fps-val">15</span></div>
+      <div class="row" id="gif-scale-row" style="display:none"><span class="lbl">GIF scale</span><input type="range" id="gif-scale" min="10" max="100" value="40"><span class="val" id="gif-scale-val">40%</span></div>
       <button id="rec-btn">⏺ Record</button>
       <div id="rec-status"></div>
     </div>
     <div class="tips">
-      <div class="sh">Export</div>
+      <div class="sh">Tips</div>
       <p style="line-height:2">
-        → Run <strong>glyph-birds-server.py</strong> first<br>
-        → Then hit Record for a true MP4<br>
-        → Without the server, saves as WebM<br>
-        → WebM plays in Chrome, VLC & more
+        → MP4 works best in Chrome/Edge<br>
+        → GIF: lower scale = smaller file<br>
+        → WebM plays in Chrome, VLC & more<br>
+        → Slow cursor = graceful arcs
       </p>
     </div>
   </div>
@@ -811,6 +814,180 @@ document.getElementById('grad-add').addEventListener('click',()=>{
 bind('bg-noise','bg-noise-val','%',v=>{bgNoise=v/100;noiseDirty=true;});
 
 
+// ── GIF encoder (self-contained, no deps) ─────────────────────────────────
+// Implements a minimal but complete GIF89a encoder with LZW compression
+const GIF = (() => {
+  // Octree colour quantiser — reduces to 256 colours
+  function quantize(pixels, maxColors) {
+    // Simple median-cut quantization
+    const cubes = [{ pixels: pixels.slice() }];
+    while (cubes.length < maxColors) {
+      cubes.sort((a, b) => b.pixels.length - a.pixels.length);
+      const cube = cubes.shift();
+      if (cube.pixels.length < 2) { cubes.push(cube); break; }
+      // Find widest channel
+      let rMin=255,rMax=0,gMin=255,gMax=0,bMin=255,bMax=0;
+      for (const p of cube.pixels) {
+        rMin=Math.min(rMin,p[0]);rMax=Math.max(rMax,p[0]);
+        gMin=Math.min(gMin,p[1]);gMax=Math.max(gMax,p[1]);
+        bMin=Math.min(bMin,p[2]);bMax=Math.max(bMax,p[2]);
+      }
+      const rR=rMax-rMin,gR=gMax-gMin,bR=bMax-bMin;
+      const ch = rR>=gR&&rR>=bR?0:gR>=bR?1:2;
+      cube.pixels.sort((a,b)=>a[ch]-b[ch]);
+      const mid = cube.pixels.length>>1;
+      cubes.push({pixels:cube.pixels.slice(0,mid)});
+      cubes.push({pixels:cube.pixels.slice(mid)});
+    }
+    // Average each cube to get palette colour
+    return cubes.map(c=>{
+      let r=0,g=0,b=0;
+      for(const p of c.pixels){r+=p[0];g+=p[1];b+=p[2];}
+      const n=c.pixels.length||1;
+      return [r/n|0,g/n|0,b/n|0];
+    });
+  }
+
+  function nearestIdx(r,g,b,pal){
+    let best=Infinity,idx=0;
+    for(let i=0;i<pal.length;i++){
+      const dr=r-pal[i][0],dg=g-pal[i][1],db=b-pal[i][2];
+      const d=dr*dr+dg*dg+db*db;
+      if(d<best){best=d;idx=i;}
+    }
+    return idx;
+  }
+
+  // LZW encoder
+  function lzwEncode(indices, minCodeSize) {
+    const clearCode = 1<<minCodeSize;
+    const eofCode   = clearCode+1;
+    let codeSize = minCodeSize+1;
+    let maxCode  = clearCode<<1;
+    const table  = new Map();
+    const output = [];
+    let buf=0,bufBits=0;
+
+    function emit(code){
+      buf|=code<<bufBits;bufBits+=codeSize;
+      while(bufBits>=8){output.push(buf&0xff);buf>>=8;bufBits-=8;}
+    }
+
+    function reset(){
+      table.clear();
+      for(let i=0;i<clearCode;i++) table.set(String(i),i);
+      codeSize=minCodeSize+1;maxCode=clearCode<<1;
+    }
+
+    reset();emit(clearCode);
+    let str=String(indices[0]);
+    for(let i=1;i<indices.length;i++){
+      const next=str+','+indices[i];
+      if(table.has(next)){str=next;}
+      else{
+        emit(table.get(str));
+        if(table.size<4096){table.set(next,table.size);if(table.size>=maxCode&&codeSize<12){codeSize++;maxCode<<=1;}}
+        else{emit(clearCode);reset();}
+        str=String(indices[i]);
+      }
+    }
+    emit(table.get(str));emit(eofCode);
+    if(bufBits>0)output.push(buf&0xff);
+    return output;
+  }
+
+  function writeU16LE(v){return[v&0xff,(v>>8)&0xff];}
+
+  function encodeFrame(imgData, w, h, pal, delay){
+    // Sample pixels
+    const pixels=[];
+    for(let i=0;i<imgData.data.length;i+=4)
+      pixels.push([imgData.data[i],imgData.data[i+1],imgData.data[i+2]]);
+
+    // Map to palette
+    const indices=pixels.map(p=>nearestIdx(p[0],p[1],p[2],pal));
+
+    // Graphic Control Extension (delay)
+    const gce=[0x21,0xf9,0x04,0x00,...writeU16LE(delay),0x00,0x00];
+
+    // Image Descriptor
+    const desc=[0x2c,0,0,0,0,...writeU16LE(w),...writeU16LE(h),0x00];
+
+    // LZW
+    const minCS=Math.max(2,Math.ceil(Math.log2(pal.length)));
+    const lzw=lzwEncode(indices,minCS);
+
+    // Pack LZW into sub-blocks of max 255 bytes
+    const blocks=[];
+    for(let i=0;i<lzw.length;i+=255){
+      const sub=lzw.slice(i,i+255);
+      blocks.push(sub.length,...sub);
+    }
+
+    return [...gce,...desc,minCS,...blocks,0x00];
+  }
+
+  return {
+    encode(frames, w, h, fps){
+      // Build global palette from first frame
+      const sample=[];
+      const step=Math.max(1,Math.floor(frames[0].data.length/4/512));
+      for(let i=0;i<frames[0].data.length;i+=4*step)
+        sample.push([frames[0].data[i],frames[0].data[i+1],frames[0].data[i+2]]);
+      // Also sample from a few other frames
+      for(let fi=1;fi<Math.min(frames.length,5);fi++){
+        const f=frames[fi];
+        for(let i=0;i<f.data.length;i+=4*step*4)
+          sample.push([f.data[i],f.data[i+1],f.data[i+2]]);
+      }
+      const pal=quantize(sample,256);
+      // Pad palette to power of 2
+      const palSize=Math.max(2,1<<Math.ceil(Math.log2(pal.length)));
+      while(pal.length<palSize)pal.push([0,0,0]);
+      const colorTableFlag=Math.log2(palSize)-1;
+
+      const delay=Math.round(100/fps); // centiseconds
+
+      // Header
+      const header=[
+        0x47,0x49,0x46,0x38,0x39,0x61, // GIF89a
+        ...writeU16LE(w),...writeU16LE(h),
+        0x80|colorTableFlag,             // packed: global color table
+        0x00,                            // background color index
+        0x00,                            // pixel aspect ratio
+      ];
+
+      // Global colour table
+      const gct=[];
+      for(const c of pal){gct.push(c[0],c[1],c[2]);}
+
+      // Loop forever: Netscape extension
+      const loop=[0x21,0xff,0x0b,
+        0x4e,0x45,0x54,0x53,0x43,0x41,0x50,0x45,0x32,0x2e,0x30, // NETSCAPE2.0
+        0x03,0x01,0x00,0x00,0x00];
+
+      const frameBytes=frames.map(f=>encodeFrame(f,w,h,pal,delay)).flat();
+
+      const gif=new Uint8Array([...header,...gct,...loop,...frameBytes,0x3b]);
+      return gif;
+    }
+  };
+})();
+
+// ── Format switcher UI ────────────────────────────────────────────────────
+document.getElementById('rec-fmt').addEventListener('change',function(){
+  const isGif=this.value==='gif';
+  document.getElementById('quality-row').style.display=isGif?'none':'flex';
+  document.getElementById('gif-fps-row').style.display=isGif?'flex':'none';
+  document.getElementById('gif-scale-row').style.display=isGif?'flex':'none';
+});
+document.getElementById('gif-fps').addEventListener('input',function(){
+  document.getElementById('gif-fps-val').textContent=this.value;
+});
+document.getElementById('gif-scale').addEventListener('input',function(){
+  document.getElementById('gif-scale-val').textContent=this.value+'%';
+});
+
 // ── Recording ─────────────────────────────────────────────────────────────
 const recBtn=document.getElementById('rec-btn'),recStatus=document.getElementById('rec-status');
 let recActive=false;
@@ -825,24 +1002,11 @@ function dlBlob(blob,name){
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 
-// Pick the best supported MIME for the requested format
 function resolveMime(fmt){
   const candidates={
-    'mp4':[
-      'video/mp4;codecs=avc1',
-      'video/mp4;codecs=h264',
-      'video/mp4',
-    ],
-    'webm-vp9':[
-      'video/webm;codecs=vp9',
-      'video/webm;codecs=vp9,opus',
-      'video/webm',
-    ],
-    'webm-vp8':[
-      'video/webm;codecs=vp8',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-    ],
+    'mp4':['video/mp4;codecs=avc1','video/mp4;codecs=h264','video/mp4'],
+    'webm-vp9':['video/webm;codecs=vp9','video/webm;codecs=vp9,opus','video/webm'],
+    'webm-vp8':['video/webm;codecs=vp8','video/webm;codecs=vp8,opus','video/webm'],
   };
   for(const m of candidates[fmt]||candidates['webm-vp9']){
     if(MediaRecorder.isTypeSupported(m)) return m;
@@ -851,21 +1015,19 @@ function resolveMime(fmt){
 }
 
 function bitrateFor(q){
-  return {high:25_000_000, med:12_000_000, low:5_000_000}[q]||12_000_000;
+  return {high:25_000_000,med:12_000_000,low:5_000_000}[q]||12_000_000;
 }
 
 async function startRec(){
   const durSec=parseFloat(document.getElementById('rec-dur').value);
   const fmt=document.getElementById('rec-fmt').value;
-  const quality=document.getElementById('rec-quality').value;
-  const FPS=30;
+  const durMs=durSec*1000;
 
   recActive=true;
   recBtn.classList.add('act');recBtn.textContent='● Recording…';
 
-  // Animate cursor
+  // Cursor animation
   const cx=W/2,cy=H/2,st=performance.now();
-  const durMs=durSec*1000;
   function animCursor(now){
     if(!recActive)return;
     const t=(now-st)/durMs,a=t*Math.PI*3;
@@ -875,39 +1037,75 @@ async function startRec(){
   }
   requestAnimationFrame(animCursor);
 
+  // ── GIF path ────────────────────────────────────────────────────────────
+  if(fmt==='gif'){
+    const gifFps=parseInt(document.getElementById('gif-fps').value);
+    const gifScale=parseInt(document.getElementById('gif-scale').value)/100;
+    const gw=Math.max(2,Math.round(W*gifScale)>>1<<1);
+    const gh=Math.max(2,Math.round(H*gifScale)>>1<<1);
+    const totalFrames=Math.ceil(gifFps*durSec);
+    const frameInterval=1000/gifFps;
+
+    const tmp=document.createElement('canvas');
+    tmp.width=gw;tmp.height=gh;
+    const tc=tmp.getContext('2d');
+    const capturedFrames=[];
+
+    recStatus.textContent=`0 / ${totalFrames} frames…`;
+
+    await new Promise(resolve=>{
+      let fi=0,lastCapture=performance.now();
+      function captureLoop(now){
+        if(fi>=totalFrames){resolve();return;}
+        if(now-lastCapture>=frameInterval){
+          tc.drawImage(canvas,0,0,gw,gh);
+          capturedFrames.push(tc.getImageData(0,0,gw,gh));
+          fi++;lastCapture=now;
+          recStatus.textContent=`${fi} / ${totalFrames} frames…`;
+        }
+        requestAnimationFrame(captureLoop);
+      }
+      requestAnimationFrame(captureLoop);
+    });
+
+    recStatus.textContent='⏳ Encoding GIF…';
+    // Yield to browser so status text renders before heavy computation
+    await new Promise(r=>setTimeout(r,30));
+
+    const gif=GIF.encode(capturedFrames,gw,gh,gifFps);
+    dlBlob(new Blob([gif],{type:'image/gif'}),'glyph-birds.gif');
+    const sizeMB=(gif.length/1_000_000).toFixed(1);
+    recStatus.textContent=`✓ GIF downloaded — ${sizeMB} MB`;
+    recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record';
+    return;
+  }
+
+  // ── Video path (MP4 / WebM) ──────────────────────────────────────────
+  const quality=document.getElementById('rec-quality').value;
   const mime=resolveMime(fmt);
-  const isMP4=mime.startsWith('video/mp4');
-  const ext=isMP4?'mp4':'webm';
+  const ext=mime.startsWith('video/mp4')?'mp4':'webm';
   const bitrate=bitrateFor(quality);
 
   recStatus.textContent=`Recording ${durSec}s — ${mime.split(';')[0].replace('video/','')}…`;
 
   const chunks=[];
-  const stream=canvas.captureStream(FPS);
+  const stream=canvas.captureStream(30);
   let mr;
-
   try{
     mr=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:bitrate});
   }catch(e){
-    // Requested mime rejected — fall back to plain webm
     mr=new MediaRecorder(stream,{videoBitsPerSecond:bitrate});
   }
 
   mr.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data);};
-
   mr.onstop=()=>{
-    recActive=false;
-    recBtn.classList.remove('act');recBtn.textContent='⏺ Record';
-
+    recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record';
     const actualMime=mr.mimeType||mime;
     const actualExt=actualMime.startsWith('video/mp4')?'mp4':'webm';
     const blob=new Blob(chunks,{type:actualMime});
-    const sizeMB=(blob.size/1_000_000).toFixed(1);
-
     dlBlob(blob,`glyph-birds.${actualExt}`);
-    recStatus.textContent=`✓ ${actualExt.toUpperCase()} downloaded — ${sizeMB} MB`;
+    recStatus.textContent=`✓ ${actualExt.toUpperCase()} downloaded — ${(blob.size/1e6).toFixed(1)} MB`;
   };
-
   mr.start(100);
   setTimeout(()=>{if(mr.state!=='inactive')mr.stop();},durMs);
 }
