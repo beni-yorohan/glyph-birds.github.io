@@ -139,7 +139,7 @@ select option{background:var(--surface);}
   background:var(--bg);display:flex;align-items:center;justify-content:center;
   position:relative;overflow:hidden;cursor:none;transition:background .3s;
 }
-#cw{transform-origin:center;flex-shrink:0;box-shadow:0 12px 80px rgba(0,0,0,.7),0 0 0 1px rgba(128,128,128,.07);}
+#cw{transform-origin:center;flex-shrink:0;box-shadow:0 12px 80px rgba(0,0,0,.7),0 0 0 1px rgba(128,128,128,.07);position:relative;}
 #card{display:block;cursor:none;}
 
 /* ═══ RIGHT PANEL ═══ */
@@ -206,6 +206,25 @@ select option{background:var(--surface);}
 }
 .grad-stop-row .del-stop:hover{border-color:var(--text2);color:var(--text);}
 
+/* path drawing overlay */
+#path-overlay{
+  position:absolute;inset:0;cursor:crosshair;z-index:10;
+  display:none;
+}
+#path-overlay.active{display:block;}
+#path-canvas{
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  pointer-events:none;
+}
+#path-overlay-msg{
+  position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+  font-family:'Courier New',monospace;font-size:10px;letter-spacing:.12em;
+  color:var(--accent);background:var(--surface);border:1px solid var(--border2);
+  padding:6px 14px;border-radius:4px;pointer-events:none;white-space:nowrap;
+  text-transform:uppercase;
+}
+
 /* cursor dot */
 #cd{
   position:fixed;width:5px;height:5px;border-radius:50%;
@@ -260,6 +279,31 @@ select option{background:var(--surface);}
         <div style="font-size:8px;color:var(--text2);text-align:center;letter-spacing:.15em;margin-bottom:4px">DIRECTION</div>
         <div id="dw"><canvas id="dirwheel" width="90" height="90"></canvas></div>
         <div class="row"><span class="lbl">Speed</span><input type="range" id="free-speed" min="1" max="20" value="6"><span class="val" id="free-speed-val">6</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:8px;color:var(--text2);letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px">Custom Path</div>
+          <div class="tp">
+            <button class="tog" id="draw-path-btn">✏ Draw</button>
+            <button class="tog" id="clear-path-btn">✕ Clear</button>
+          </div>
+          <div id="path-hint" style="font-size:8.5px;color:var(--text2);margin-top:7px;line-height:1.9;display:none">Draw on the canvas.<br>↵ Enter — confirm path<br>⌫ Delete — clear &amp; redraw</div>
+          <button class="btn" id="path-done-btn" style="display:none;margin-top:8px;font-size:9px;padding:6px">✓ Done — use path</button>
+          <div id="path-formation-controls" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:8px;color:var(--text2);letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px">Formation</div>
+            <div class="tp" style="margin-bottom:10px">
+              <button class="tog on" id="form-flock">≋ Flock</button>
+              <button class="tog" id="form-line">— Line</button>
+            </div>
+            <div class="row"><span class="lbl">Path speed</span><input type="range" id="path-speed" min="1" max="100" value="18"><span class="val" id="path-speed-val">18</span></div>
+            <div id="flock-controls">
+              <div class="row"><span class="lbl">Flock width</span><input type="range" id="flock-width" min="1" max="100" value="40"><span class="val" id="flock-width-val">40</span></div>
+              <div class="row"><span class="lbl">Wander</span><input type="range" id="path-wander" min="0" max="100" value="50"><span class="val" id="path-wander-val">50</span></div>
+            </div>
+            <div id="line-controls" style="display:none">
+              <div class="row"><span class="lbl">Bird spacing</span><input type="range" id="path-spacing" min="1" max="100" value="30"><span class="val" id="path-spacing-val">30</span></div>
+              <div class="row"><span class="lbl">Stagger</span><input type="range" id="path-stagger" min="0" max="100" value="0"><span class="val" id="path-stagger-val">0</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="sec">
@@ -333,7 +377,15 @@ select option{background:var(--surface);}
 </div>
 
 <!-- STAGE -->
-<div id="stage"><div id="cw"><canvas id="card"></canvas></div></div>
+<div id="stage">
+  <div id="cw">
+    <canvas id="card"></canvas>
+    <div id="path-overlay">
+      <canvas id="path-canvas"></canvas>
+      <div id="path-overlay-msg">Draw your path — click Done when finished</div>
+    </div>
+  </div>
+</div>
 
 <!-- RIGHT PANEL -->
 <div id="rp">
@@ -349,33 +401,30 @@ select option{background:var(--surface);}
     <div class="exsec">
       <div class="sh">Export</div>
       <div class="row"><span class="lbl">Duration</span><input type="range" id="rec-dur" min="2" max="30" value="6"><span class="val" id="rec-dur-val">6s</span></div>
-      <div class="row"><span class="lbl">Format</span>
-        <select id="rec-fmt">
-          <option value="mp4">MP4 — H.264</option>
-          <option value="webm-vp9">WebM — VP9</option>
-          <option value="webm-vp8">WebM — VP8</option>
-          <option value="gif">GIF — Animated</option>
+      <div class="row"><span class="lbl">Frame rate</span>
+        <select id="rec-fps">
+          <option value="24">24 fps — cinematic</option>
+          <option value="30" selected>30 fps — standard</option>
+          <option value="60">60 fps — smooth</option>
         </select>
       </div>
       <div class="row" id="quality-row"><span class="lbl">Quality</span>
         <select id="rec-quality">
           <option value="high">High — 25 Mbps</option>
-          <option value="med" selected>Medium — 12 Mbps</option>
-          <option value="low">Low — 5 Mbps</option>
+          <option value="med" selected>Medium — 14 Mbps</option>
+          <option value="low">Low — 6 Mbps</option>
         </select>
       </div>
-      <div class="row" id="gif-fps-row" style="display:none"><span class="lbl">GIF FPS</span><input type="range" id="gif-fps" min="6" max="24" value="15"><span class="val" id="gif-fps-val">15</span></div>
-      <div class="row" id="gif-scale-row" style="display:none"><span class="lbl">GIF scale</span><input type="range" id="gif-scale" min="10" max="100" value="40"><span class="val" id="gif-scale-val">40%</span></div>
-      <button id="rec-btn">⏺ Record</button>
+      <button id="rec-btn">⏺ Record MP4</button>
       <div id="rec-status"></div>
     </div>
     <div class="tips">
       <div class="sh">Tips</div>
       <p style="line-height:2">
         → MP4 works best in Chrome/Edge<br>
-        → GIF: lower scale = smaller file<br>
-        → WebM plays in Chrome, VLC & more<br>
-        → Slow cursor = graceful arcs
+        → Noise &amp; trails auto-pause during recording<br>
+        → Slow cursor = graceful arcs<br>
+        → Higher quality = larger file
       </p>
     </div>
   </div>
@@ -387,7 +436,7 @@ select option{background:var(--surface);}
 
 <script>
 const canvas=document.getElementById('card');
-const ctx=canvas.getContext('2d');
+const ctx=canvas.getContext('2d',{willReadFrequently:true});
 const stage=document.getElementById('stage');
 
 let W=700,H=500;
@@ -405,7 +454,7 @@ let gradStops=[{color:'#0a0a0a',pos:0},{color:'#444444',pos:100}];
 let bgNoise=0; // 0–1
 // Noise canvas for bg grain effect
 const noiseCanvas=document.createElement('canvas');
-const noiseCtx=noiseCanvas.getContext('2d');
+const noiseCtx=noiseCanvas.getContext('2d',{willReadFrequently:true});
 let noiseW=0,noiseH=0,noiseDirty=true;
 function ensureNoise(){
   if(noiseW===W&&noiseH===H&&!noiseDirty)return;
@@ -438,6 +487,24 @@ let flightMode='cursor',flightAngle=0,freeSpeed=6;
 let targetX=W/2,targetY=H/2,smoothCX=W/2,smoothCY=H/2;
 let birds=[],time=0;
 
+// Custom path
+let customPath=[];
+let pathLengths=[];
+let totalPathLen=0;
+let useCustomPath=false;
+let drawingPath=false;
+let rawPathPoints=[];
+// Path formation settings
+let pathFormation='flock'; // 'flock' | 'line'
+let pathSpeed=18;          // how fast birds travel along the path (1-100)
+let flockWidth=40;         // how wide the flock spreads horizontally (birds side by side)
+let pathWander=50;         // how organically birds drift within the river
+let pathSpacing=30;        // line: spacing between birds (0-100)
+let pathStagger=0;         // line: lateral stagger alternation
+// River spawn system
+let pathSpawnTimer=0;      // timer for spawning new birds at path start
+let pathSpawnInterval=0.3; // seconds between spawns (auto-calc from birdCount)
+
 // Perlin noise
 const _p=new Uint8Array(512);
 (()=>{const p=Array.from({length:256},(_,i)=>i);for(let i=255;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}for(let i=0;i<512;i++)_p[i]=p[i&255];})();
@@ -466,50 +533,208 @@ function spawnBirds(){
       smoothAngle:0,flyAngle:0,
       restOX:(Math.random()-.5)*Math.max(W,700)*1.2,
       restOY:(Math.random()-.5)*Math.max(H,500)*1.2,
+      chasePersonality:0.4+Math.random()*1.4,
+      damping:0.52+Math.random()*0.16,
+      pathT:prev?prev.pathT:Math.random(),
+      pathSpeed:0.85+Math.random()*0.30, // each bird flows at its own pace
+      pathSide:(Math.random()-.5)*2,     // personal lateral offset (-1..1)
+      retired:false,
     });
   }
 }
 
-function resizeCanvas(w,h){W=w;H=h;canvas.width=W;canvas.height=H;}
+// Spawn a fresh bird at path start (for river mode)
+function spawnRiverBird(){
+  const a=Math.random()*Math.PI*2;
+  const pt=samplePath(0);
+  return {
+    x:pt.x,y:pt.y,
+    vx:Math.cos(a)*2,vy:Math.sin(a)*2,
+    nx:Math.random()*1000,ny:Math.random()*1000+500,
+    glyphIdx:Math.floor(Math.random()*glyphPool.length),
+    glyphTimer:Math.random(),
+    maxSpeed:20+Math.random()*15,
+    depth:Math.random(),trail:[],
+    smoothAngle:0,flyAngle:0,
+    restOX:0,restOY:0,
+    chasePersonality:0.4+Math.random()*1.4,
+    damping:0.52+Math.random()*0.16,
+    pathT:Math.random()*0.02, // tiny random offset so they don't all stack at 0
+    pathSpeed:0.82+Math.random()*0.36,
+    pathSide:(Math.random()-.5)*2,
+    retired:false,
+  };
+}
+
+function resizeCanvas(w,h){W=w;H=h;canvas.width=W;canvas.height=H;syncPathCanvas();}
 function fitCanvas(){
   const sw=stage.clientWidth,sh=stage.clientHeight;
+  if(!sw||!sh){requestAnimationFrame(fitCanvas);return;} // retry after layout
   const sc=Math.min((sw-48)/W,(sh-48)/H,1);
   document.getElementById('cw').style.transform=`scale(${sc})`;
 }
 window.addEventListener('resize',fitCanvas);
 
-let lastTime=0;
-function loop(ts){
-  const dt=Math.min((ts-lastTime)/1000,.05);lastTime=ts;time+=dt;
-  smoothCX+=(targetX-smoothCX)*(.5+(followSpeed/100)*.5);
-  smoothCY+=(targetY-smoothCY)*(.5+(followSpeed/100)*.5);
 
-  // ── Draw background ──
+let lastTime=0;
+
+// ── Physics tick — advances simulation by dt seconds ─────────────────────
+function tickPhysics(dt){
+  time+=dt;
+  const ds=(drift/100)*1.3;
+
+  // River spawn/retire
+  if(flightMode==='free' && useCustomPath && customPath.length>1){
+    const margin=glyphSize*6;
+    for(let i=birds.length-1;i>=0;i--){
+      const b=birds[i];
+      if(b.retired&&(b.x<-margin||b.x>W+margin||b.y<-margin||b.y>H+margin))birds.splice(i,1);
+    }
+    pathSpawnTimer+=dt;
+    const interval=Math.max(0.08,2.0/birdCount);
+    while(pathSpawnTimer>=interval&&birds.length<birdCount*2){pathSpawnTimer-=interval;birds.push(spawnRiverBird());}
+    while(birds.length>birdCount*2)birds.shift();
+  }
+
+  for(let i=0;i<birds.length;i++){
+    const bird=birds[i];
+    if(flightMode==='free'){
+      const nx=noise2(time*.12+bird.nx,0),ny=noise2(0,time*.12+bird.ny);
+      if(useCustomPath&&customPath.length>1){
+        const tSpeed=(pathSpeed/100)*0.0022*bird.pathSpeed;
+        bird.pathT+=tSpeed*dt*60;
+        if(bird.pathT>=1.02)bird.retired=true;
+        if(bird.retired){
+          bird.vx*=0.995;bird.vy*=0.995;
+          bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
+        }else{
+          const t=Math.min(bird.pathT,0.9999);
+          const pt=samplePath(t);
+          const pt2=samplePath(Math.min(t+0.015,0.9999));
+          const tang={x:pt2.x-pt.x,y:pt2.y-pt.y};
+          const tlen=Math.sqrt(tang.x*tang.x+tang.y*tang.y)||1;
+          const norm={x:-tang.y/tlen,y:tang.x/tlen};
+          if(pathFormation==='flock'){
+            const spreadPx=(flockWidth/100)*Math.min(W,H)*0.20;
+            const wanderAmt=pathWander/100;
+            const lateralPhase=bird.nx*0.001;
+            const lateralSlow=Math.sin(time*0.35*(wanderAmt*0.8+0.2)+lateralPhase*Math.PI*6)*0.55;
+            const lateralNoise=noise2(t*4+bird.nx*0.5,time*0.10*(wanderAmt*0.8+0.2))*0.45;
+            const lateral=(lateralSlow+lateralNoise)*spreadPx*bird.pathSide;
+            const depthOffset=(bird.depth-0.5)*(flockWidth/100)*0.035;
+            const tWithDepth=Math.min(Math.max(t+depthOffset,0),0.9999);
+            const ptDepth=samplePath(tWithDepth);
+            const tx=ptDepth.x+norm.x*lateral,ty=ptDepth.y+norm.y*lateral;
+            const dx=tx-bird.x,dy=ty-bird.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
+            const speedFactor=pathSpeed/100;
+            const pull=Math.min(dist*0.09,speedFactor*28);
+            bird.vx+=(dx/dist)*pull*dt*60;bird.vy+=(dy/dist)*pull*dt*60;
+            bird.vx+=tang.x/tlen*speedFactor*18*dt*60;bird.vy+=tang.y/tlen*speedFactor*18*dt*60;
+          }else{
+            const staggerPx=(pathStagger/100)*Math.min(W,H)*0.05;
+            const side=(i%2===0?1:-1)*staggerPx;
+            const tx=pt.x+norm.x*side,ty=pt.y+norm.y*side;
+            const dx=tx-bird.x,dy=ty-bird.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
+            const speedFactor=pathSpeed/100;
+            const pull=Math.min(dist*0.13,speedFactor*32)*bird.chasePersonality*0.8;
+            bird.vx+=(dx/dist)*pull*dt*60;bird.vy+=(dy/dist)*pull*dt*60;
+            bird.vx+=tang.x/tlen*speedFactor*16*dt*60;bird.vy+=tang.y/tlen*speedFactor*16*dt*60;
+            bird.vx+=nx*ds*0.1;bird.vy+=ny*ds*0.1;
+          }
+          for(let k=0;k<birds.length;k++){
+            if(k===i||birds[k].retired)continue;
+            const sdx=bird.x-birds[k].x,sdy=bird.y-birds[k].y;
+            const sd=Math.sqrt(sdx*sdx+sdy*sdy)||0.01;
+            const hardR=glyphSize*0.9,softR=Math.max(minSpace,glyphSize*1.6);
+            if(sd<hardR){const f=(hardR-sd)/hardR*1.1;bird.vx+=(sdx/sd)*f;bird.vy+=(sdy/sd)*f;}
+            else if(sd<softR){const f=(softR-sd)/softR*0.2;bird.vx+=(sdx/sd)*f;bird.vy+=(sdy/sd)*f;}
+          }
+          bird.vx*=0.72;bird.vy*=0.72;
+          const spf=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy),maxSpF=freeSpeed*2.4;
+          if(spf>maxSpF){bird.vx=(bird.vx/spf)*maxSpF;bird.vy=(bird.vy/spf)*maxSpF;}
+          bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
+        }
+      }else{
+        bird.vx=Math.cos(flightAngle)*freeSpeed+nx*ds*1.5;
+        bird.vy=Math.sin(flightAngle)*freeSpeed+ny*ds*1.5;
+        for(let k=0;k<birds.length;k++){
+          if(k===i)continue;
+          const sdx=bird.x-birds[k].x,sdy=bird.y-birds[k].y;
+          const sd=Math.sqrt(sdx*sdx+sdy*sdy);
+          if(sd<minSpace*1.8&&sd>0){const f=(minSpace*1.8-sd)/(minSpace*1.8)*0.4;bird.vx+=(sdx/sd)*f;bird.vy+=(sdy/sd)*f;}
+        }
+        const spfw=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy),maxSpFW=freeSpeed*2.2;
+        if(spfw>maxSpFW){bird.vx=(bird.vx/spfw)*maxSpFW;bird.vy=(bird.vy/spfw)*maxSpFW;}
+        bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
+        const g2=glyphSize*2;
+        if(bird.x<-g2)bird.x=W+g2;if(bird.x>W+g2)bird.x=-g2;
+        if(bird.y<-g2)bird.y=H+g2;if(bird.y>H+g2)bird.y=-g2;
+      }
+    }else{
+      const nx=noise2(time*.12+bird.nx,0),ny=noise2(0,time*.12+bird.ny);
+      const ds2=(drift/100)*1.3;
+      const dx=targetX-bird.x,dy=targetY-bird.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
+      const chaseStr=(followSpeed/100)*bird.chasePersonality*(0.4+dist/180);
+      bird.vx+=(dx/dist)*chaseStr*60*dt;bird.vy+=(dy/dist)*chaseStr*60*dt;
+      bird.vx+=nx*ds2*0.8;bird.vy+=ny*ds2*0.8;
+      for(let k=0;k<birds.length;k++){
+        if(k===i)continue;
+        const sdx=bird.x-birds[k].x,sdy=bird.y-birds[k].y;
+        const sd=Math.sqrt(sdx*sdx+sdy*sdy)||0.01;
+        const hardR=glyphSize*0.9,softR=Math.max(minSpace,glyphSize*1.8);
+        if(sd<hardR){const f=(hardR-sd)/hardR*1.2;bird.vx+=(sdx/sd)*f;bird.vy+=(sdy/sd)*f;}
+        else if(sd<softR){const f=(softR-sd)/softR*0.25;bird.vx+=(sdx/sd)*f;bird.vy+=(sdy/sd)*f;}
+      }
+      bird.vx*=bird.damping;bird.vy*=bird.damping;
+      const sp=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy);
+      if(sp>bird.maxSpeed){bird.vx=(bird.vx/sp)*bird.maxSpeed;bird.vy=(bird.vy/sp)*bird.maxSpeed;}
+      bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
+    }
+    // Advance glyph animation timer
+    const sp2=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy);
+    const sn=Math.min(sp2/bird.maxSpeed,1);
+    const df=speedFlap>0?(1/flapSpeed)*(1+(1-sn)*speedFlap*3):1/flapSpeed;
+    bird.glyphTimer+=dt;
+    if(bird.glyphTimer>=df){bird.glyphTimer-=df;bird.glyphIdx=(bird.glyphIdx+1)%glyphPool.length;}
+    // Update smooth angle
+    const fa=sp2>.5?Math.atan2(bird.vy,bird.vx):bird.flyAngle;
+    bird.flyAngle=fa;
+    let da=fa-bird.smoothAngle;
+    while(da>Math.PI)da-=Math.PI*2;while(da<-Math.PI)da+=Math.PI*2;
+    bird.smoothAngle+=da*.18;
+    // Trail
+    const drawA=bird.smoothAngle*rotateAmt;
+    const mt=Math.floor(trailAmt*6)+1;
+    bird.trail.push({x:bird.x,y:bird.y,angle:drawA});
+    if(bird.trail.length>mt)bird.trail.shift();
+  }
+}
+
+// ── Render — draws current state to ctx ──────────────────────────────────
+function renderFrame(){
   if(bgMode==='gradient'&&gradStops.length>1){
     const sorted=[...gradStops].sort((a,b)=>a.pos-b.pos);
     let grad;
     if(gradDir==='radial'){
       grad=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)/2);
-    } else {
+    }else{
       const coords={tb:[0,0,0,H],lr:[0,0,W,0],tl:[0,0,W,H]};
       const[x0,y0,x1,y1]=coords[gradDir]||coords.tb;
       grad=ctx.createLinearGradient(x0,y0,x1,y1);
     }
     sorted.forEach(s=>grad.addColorStop(Math.max(0,Math.min(1,s.pos/100)),s.color));
     ctx.fillStyle=grad;
-  } else {
+  }else{
     ctx.fillStyle=bgColor;
   }
   ctx.fillRect(0,0,W,H);
 
-  // Noise overlay
   if(bgNoise>0){
     ensureNoise();
     ctx.save();ctx.globalAlpha=bgNoise*0.18;ctx.globalCompositeOperation='overlay';
     ctx.drawImage(noiseCanvas,0,0);ctx.restore();
-    noiseDirty=true; // regenerate each frame for animated grain
+    noiseDirty=true;
   }
-
   if(bgImage){
     ctx.save();ctx.globalAlpha=bgImgOpacity;
     const iw=bgImage.naturalWidth,ih=bgImage.naturalHeight;
@@ -522,71 +747,20 @@ function loop(ts){
   const hx=birdColor.replace('#','');
   const r=parseInt(hx.slice(0,2),16),g=parseInt(hx.slice(2,4),16),b=parseInt(hx.slice(4,6),16);
   ctx.textBaseline='middle';ctx.textAlign='center';
-  const ds=(drift/100)*1.3;
 
   for(let i=0;i<birds.length;i++){
     const bird=birds[i];
-    if(flightMode==='free'){
-      const nx=noise2(time*.12+bird.nx,0),ny=noise2(0,time*.12+bird.ny);
-      bird.vx=Math.cos(flightAngle)*freeSpeed+nx*ds*1.5;
-      bird.vy=Math.sin(flightAngle)*freeSpeed+ny*ds*1.5;
-      bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
-      const g2=glyphSize*2;
-      if(bird.x<-g2)bird.x=W+g2;if(bird.x>W+g2)bird.x=-g2;
-      if(bird.y<-g2)bird.y=H+g2;if(bird.y>H+g2)bird.y=-g2;
-    }else{
-      const nx=noise2(time*.12+bird.nx,0),ny=noise2(0,time*.12+bird.ny);
-      bird.restOX+=nx*(ds+.3);bird.restOY+=ny*(ds+.3);
-      const mo=(spread/100)*Math.max(W,H)*.65+10;
-      bird.restOX=Math.max(-mo,Math.min(mo,bird.restOX));
-      bird.restOY=Math.max(-mo,Math.min(mo,bird.restOY));
-      const tx=smoothCX+bird.restOX,ty=smoothCY+bird.restOY;
-      const dx=tx-bird.x,dy=ty-bird.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
-      const cs=(followSpeed/100)*2.2*(.3+dist/20);
-      bird.vx+=(dx/dist)*cs*60*dt;bird.vy+=(dy/dist)*cs*60*dt;
-      for(let k=0;k<birds.length;k++){
-        if(k===i)continue;
-        const sdx=bird.x-birds[k].x,sdy=bird.y-birds[k].y,sd=Math.sqrt(sdx*sdx+sdy*sdy);
-        if(sd<minSpace&&sd>0){const psh=(minSpace-sd)/minSpace*.25;bird.vx+=(sdx/sd)*psh;bird.vy+=(sdy/sd)*psh;}
-      }
-      const bm=spread+80;
-      if(bird.x<-bm)bird.vx+=.5;if(bird.x>W+bm)bird.vx-=.5;
-      if(bird.y<-bm)bird.vy+=.5;if(bird.y>H+bm)bird.vy-=.5;
-      bird.vx*=.60;bird.vy*=.60;
-      const sp=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy);
-      if(sp>bird.maxSpeed){bird.vx=(bird.vx/sp)*bird.maxSpeed;bird.vy=(bird.vy/sp)*bird.maxSpeed;}
-      bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
-    }
-
     const gs=glyphSize*3;
     if(bird.x<-gs||bird.x>W+gs||bird.y<-gs||bird.y>H+gs){bird.trail=[];continue;}
     const opacity=birdOpacity;
     if(opacity<.01){bird.trail=[];continue;}
-
     const sp2=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy);
     const sn=Math.min(sp2/bird.maxSpeed,1);
-
-    const df=speedFlap>0?(1/flapSpeed)*(1+(1-sn)*speedFlap*3):1/flapSpeed;
-    bird.glyphTimer+=dt;
-    if(bird.glyphTimer>=df){bird.glyphTimer-=df;bird.glyphIdx=(bird.glyphIdx+1)%glyphPool.length;}
-
     const dsc=depthAmt>0?1-bird.depth*depthAmt*.55:1;
     const dbr=depthAmt>0?1-bird.depth*depthAmt*.45:1;
-
-    const fa=sp2>.5?Math.atan2(bird.vy,bird.vx):bird.flyAngle;
-    bird.flyAngle=fa;
-    let da=fa-bird.smoothAngle;
-    while(da>Math.PI)da-=Math.PI*2;while(da<-Math.PI)da+=Math.PI*2;
-    bird.smoothAngle+=da*.18;
     const drawA=bird.smoothAngle*rotateAmt;
-
     const sx=stretchAmt>0?1+sn*stretchAmt*.7:1;
     const sy=stretchAmt>0?1-sn*stretchAmt*.35:1;
-
-    bird.trail.push({x:bird.x,y:bird.y,angle:drawA});
-    const mt=Math.floor(trailAmt*6)+1;
-    if(bird.trail.length>mt)bird.trail.shift();
-
     if(trailAmt>0&&bird.trail.length>1){
       for(let t=0;t<bird.trail.length-1;t++){
         const tp=bird.trail[t];
@@ -604,6 +778,12 @@ function loop(ts){
     ctx.fillStyle=`rgba(${r},${g},${b},${opacity*dbr})`;ctx.fillText(glyphPool[bird.glyphIdx],0,0);
     ctx.restore();
   }
+}
+
+function loop(ts){
+  const dt=Math.min((ts-lastTime)/1000,.05);lastTime=ts;
+  tickPhysics(dt);
+  renderFrame();
   requestAnimationFrame(loop);
 }
 
@@ -636,7 +816,7 @@ async function loadFont(file){
   try{
     await face.load();document.fonts.add(face);fontFamily=name;
     document.getElementById('fn').textContent='✓ '+file.name;
-    const tc=document.createElement('canvas').getContext('2d');
+    const tc=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
     tc.font=`400 40px ${name}`;tc.canvas.width=tc.canvas.height=60;
     const cl=FLAP_CLOSED.filter(c=>tc.measureText(c).width>0);
     const op=FLAP_OPEN.filter(c=>tc.measureText(c).width>0);
@@ -685,6 +865,221 @@ document.getElementById('mf').addEventListener('click',()=>{
   document.getElementById('fc').style.display='block';
 });
 
+// ── Path sampling helpers ──────────────────────────────────────────────────
+function buildPathLengths(pts){
+  pathLengths=[0];
+  for(let i=1;i<pts.length;i++){
+    const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y;
+    pathLengths.push(pathLengths[i-1]+Math.sqrt(dx*dx+dy*dy));
+  }
+  totalPathLen=pathLengths[pathLengths.length-1]||1;
+}
+
+function samplePath(t){
+  // t in [0,1] — returns {x,y} along customPath
+  const target=t*totalPathLen;
+  let lo=0,hi=pathLengths.length-1;
+  while(lo<hi-1){const mid=(lo+hi)>>1;if(pathLengths[mid]<target)lo=mid;else hi=mid;}
+  const seg=pathLengths[hi]-pathLengths[lo]||1;
+  const f=(target-pathLengths[lo])/seg;
+  return{
+    x:customPath[lo].x+(customPath[hi].x-customPath[lo].x)*f,
+    y:customPath[lo].y+(customPath[hi].y-customPath[lo].y)*f
+  };
+}
+
+// Smooth a raw point array with Catmull-Rom resampling
+function smoothPath(pts,targetCount){
+  if(pts.length<2)return pts;
+  const out=[];
+  for(let i=0;i<targetCount;i++){
+    const t=i/(targetCount-1)*(pts.length-1);
+    const i0=Math.max(0,Math.floor(t)-1);
+    const i1=Math.floor(t);
+    const i2=Math.min(pts.length-1,i1+1);
+    const i3=Math.min(pts.length-1,i1+2);
+    const f=t-Math.floor(t);
+    const p0=pts[i0],p1=pts[i1],p2=pts[i2],p3=pts[i3];
+    // Catmull-Rom
+    const x=0.5*((2*p1.x)+(-p0.x+p2.x)*f+(2*p0.x-5*p1.x+4*p2.x-p3.x)*f*f+(-p0.x+3*p1.x-3*p2.x+p3.x)*f*f*f);
+    const y=0.5*((2*p1.y)+(-p0.y+p2.y)*f+(2*p0.y-5*p1.y+4*p2.y-p3.y)*f*f+(-p0.y+3*p1.y-3*p2.y+p3.y)*f*f*f);
+    out.push({x,y});
+  }
+  return out;
+}
+
+// ── Path drawing UI ────────────────────────────────────────────────────────
+const pathOverlay=document.getElementById('path-overlay');
+const pathCvs=document.getElementById('path-canvas');
+const pathCtx2=pathCvs.getContext('2d',{willReadFrequently:true});
+
+function syncPathCanvas(){
+  if(!pathCvs)return;
+  pathCvs.width=canvas.width;
+  pathCvs.height=canvas.height;
+}
+
+function drawPathPreview(){
+  pathCtx2.clearRect(0,0,pathCvs.width,pathCvs.height);
+  if(rawPathPoints.length<2)return;
+  const light=document.body.classList.contains('light');
+  pathCtx2.strokeStyle=light?'rgba(0,0,0,0.5)':'rgba(255,255,255,0.5)';
+  pathCtx2.lineWidth=2;pathCtx2.lineCap='round';pathCtx2.lineJoin='round';
+  pathCtx2.setLineDash([6,4]);
+  pathCtx2.beginPath();
+  pathCtx2.moveTo(rawPathPoints[0].x,rawPathPoints[0].y);
+  for(let i=1;i<rawPathPoints.length;i++)pathCtx2.lineTo(rawPathPoints[i].x,rawPathPoints[i].y);
+  pathCtx2.stroke();
+  pathCtx2.setLineDash([]);
+  // Draw start dot
+  pathCtx2.beginPath();pathCtx2.arc(rawPathPoints[0].x,rawPathPoints[0].y,5,0,Math.PI*2);
+  pathCtx2.fillStyle=light?'rgba(0,0,0,0.7)':'rgba(255,255,255,0.7)';pathCtx2.fill();
+}
+
+function getCanvasPoint(e){
+  const rect=pathOverlay.getBoundingClientRect();
+  const scaleX=canvas.width/rect.width,scaleY=canvas.height/rect.height;
+  const src=e.touches?e.touches[0]:e;
+  return{x:(src.clientX-rect.left)*scaleX,y:(src.clientY-rect.top)*scaleY};
+}
+
+function startDrawing(){
+  drawingPath=true;rawPathPoints=[];
+  syncPathCanvas();
+  pathOverlay.classList.add('active');
+  document.getElementById('path-hint').style.display='block';
+  document.getElementById('path-done-btn').style.display='none';
+  document.getElementById('draw-path-btn').classList.add('on');
+}
+function stopDrawing(){
+  drawingPath=false;
+  pathOverlay.classList.remove('active');
+  document.getElementById('path-hint').style.display='none';
+  document.getElementById('path-done-btn').style.display='none';
+  document.getElementById('draw-path-btn').classList.remove('on');
+}
+
+document.getElementById('draw-path-btn').addEventListener('click',()=>{
+  if(drawingPath){stopDrawing();return;}
+  startDrawing();
+});
+
+document.getElementById('clear-path-btn').addEventListener('click',()=>{
+  useCustomPath=false;rawPathPoints=[];customPath=[];
+  pathCtx2.clearRect(0,0,pathCvs.width,pathCvs.height);
+  document.getElementById('path-formation-controls').style.display='none';
+  stopDrawing();
+  // Reset all birds — remove any extras spawned by river system
+  birds=birds.slice(0,birdCount);
+  birds.forEach(b=>{b.retired=false;b.pathT=Math.random();});
+});
+
+document.getElementById('path-done-btn').addEventListener('click',()=>{
+  if(rawPathPoints.length<3){stopDrawing();return;}
+  customPath=smoothPath(rawPathPoints,Math.min(600,rawPathPoints.length*2));
+  buildPathLengths(customPath);
+  useCustomPath=true;
+  pathSpawnTimer=0;
+  // Seed existing birds along the path with staggered t values
+  // so the stream starts populated immediately
+  birds.forEach((b,i)=>{
+    b.pathT = (i/birds.length) * 0.8; // spread across first 80% of path
+    b.retired = false;
+    b.pathSpeed = 0.82+Math.random()*0.36;
+    b.pathSide = (Math.random()-.5)*2;
+    const pt=samplePath(b.pathT);
+    b.x=pt.x+(Math.random()-.5)*20;
+    b.y=pt.y+(Math.random()-.5)*20;
+    b.vx=0;b.vy=0;
+  });
+  document.getElementById('path-formation-controls').style.display='block';
+  stopDrawing();
+});
+
+// Formation toggle
+document.getElementById('form-flock').addEventListener('click',()=>{
+  pathFormation='flock';
+  document.getElementById('form-flock').classList.add('on');
+  document.getElementById('form-line').classList.remove('on');
+  document.getElementById('flock-controls').style.display='block';
+  document.getElementById('line-controls').style.display='none';
+});
+document.getElementById('form-line').addEventListener('click',()=>{
+  pathFormation='line';
+  document.getElementById('form-line').classList.add('on');
+  document.getElementById('form-flock').classList.remove('on');
+  document.getElementById('flock-controls').style.display='none';
+  document.getElementById('line-controls').style.display='block';
+});
+// Formation sliders
+document.getElementById('path-speed').addEventListener('input',function(){
+  pathSpeed=+this.value;document.getElementById('path-speed-val').textContent=this.value;
+});
+document.getElementById('flock-width').addEventListener('input',function(){
+  flockWidth=+this.value;document.getElementById('flock-width-val').textContent=this.value;
+});
+document.getElementById('path-wander').addEventListener('input',function(){
+  pathWander=+this.value;document.getElementById('path-wander-val').textContent=this.value;
+});
+document.getElementById('path-spacing').addEventListener('input',function(){
+  pathSpacing=+this.value;document.getElementById('path-spacing-val').textContent=this.value;
+});
+document.getElementById('path-stagger').addEventListener('input',function(){
+  pathStagger=+this.value;document.getElementById('path-stagger-val').textContent=this.value;
+});
+let pathDrawing=false;
+pathOverlay.addEventListener('mousedown',e=>{
+  e.stopPropagation();
+  if(!drawingPath)return;
+  pathDrawing=true;rawPathPoints=[];
+  rawPathPoints.push(getCanvasPoint(e));
+  document.getElementById('path-done-btn').style.display='none';
+});
+pathOverlay.addEventListener('mousemove',e=>{
+  e.stopPropagation();
+  if(!pathDrawing||!drawingPath)return;
+  const pt=getCanvasPoint(e);
+  const last=rawPathPoints[rawPathPoints.length-1];
+  if(Math.hypot(pt.x-last.x,pt.y-last.y)>6){
+    rawPathPoints.push(pt);drawPathPreview();
+  }
+});
+pathOverlay.addEventListener('mouseup',e=>{
+  e.stopPropagation();
+  if(!pathDrawing)return;
+  pathDrawing=false;
+  if(rawPathPoints.length>3)document.getElementById('path-done-btn').style.display='block';
+});
+pathOverlay.addEventListener('touchstart',e=>{
+  e.preventDefault();e.stopPropagation();if(!drawingPath)return;
+  pathDrawing=true;rawPathPoints=[];
+  rawPathPoints.push(getCanvasPoint(e));
+},{passive:false});
+pathOverlay.addEventListener('touchmove',e=>{
+  e.preventDefault();e.stopPropagation();if(!pathDrawing)return;
+  const pt=getCanvasPoint(e);
+  const last=rawPathPoints[rawPathPoints.length-1];
+  if(Math.hypot(pt.x-last.x,pt.y-last.y)>6){rawPathPoints.push(pt);drawPathPreview();}
+},{passive:false});
+pathOverlay.addEventListener('touchend',e=>{
+  e.stopPropagation();
+  pathDrawing=false;
+  if(rawPathPoints.length>3)document.getElementById('path-done-btn').style.display='block';
+});
+
+// Keyboard shortcuts while drawing path
+window.addEventListener('keydown',e=>{
+  if(!drawingPath)return;
+  if(e.key==='Enter'){
+    e.preventDefault();
+    document.getElementById('path-done-btn').click();
+  }
+  if(e.key==='Delete'||e.key==='Backspace'){
+    e.preventDefault();
+    document.getElementById('clear-path-btn').click();
+  }
+});
+
 // canvas size
 function clearChips(){document.querySelectorAll('.chip').forEach(b=>b.classList.remove('on'));}
 document.getElementById('card-w').addEventListener('input',function(){document.getElementById('card-w-val').textContent=this.value;clearChips();resizeCanvas(+this.value,H);spawnBirds();fitCanvas();});
@@ -702,7 +1097,7 @@ document.querySelectorAll('.chip').forEach(btn=>{
 
 // direction wheel
 const dirWheel=document.getElementById('dirwheel');
-const dwc=dirWheel.getContext('2d');
+const dwc=dirWheel.getContext('2d',{willReadFrequently:true});
 const DW=90,DR=32;
 function drawWheel(){
   const light=document.body.classList.contains('light');
@@ -813,181 +1208,6 @@ document.getElementById('grad-add').addEventListener('click',()=>{
 });
 bind('bg-noise','bg-noise-val','%',v=>{bgNoise=v/100;noiseDirty=true;});
 
-
-// ── GIF encoder (self-contained, no deps) ─────────────────────────────────
-// Implements a minimal but complete GIF89a encoder with LZW compression
-const GIF = (() => {
-  // Octree colour quantiser — reduces to 256 colours
-  function quantize(pixels, maxColors) {
-    // Simple median-cut quantization
-    const cubes = [{ pixels: pixels.slice() }];
-    while (cubes.length < maxColors) {
-      cubes.sort((a, b) => b.pixels.length - a.pixels.length);
-      const cube = cubes.shift();
-      if (cube.pixels.length < 2) { cubes.push(cube); break; }
-      // Find widest channel
-      let rMin=255,rMax=0,gMin=255,gMax=0,bMin=255,bMax=0;
-      for (const p of cube.pixels) {
-        rMin=Math.min(rMin,p[0]);rMax=Math.max(rMax,p[0]);
-        gMin=Math.min(gMin,p[1]);gMax=Math.max(gMax,p[1]);
-        bMin=Math.min(bMin,p[2]);bMax=Math.max(bMax,p[2]);
-      }
-      const rR=rMax-rMin,gR=gMax-gMin,bR=bMax-bMin;
-      const ch = rR>=gR&&rR>=bR?0:gR>=bR?1:2;
-      cube.pixels.sort((a,b)=>a[ch]-b[ch]);
-      const mid = cube.pixels.length>>1;
-      cubes.push({pixels:cube.pixels.slice(0,mid)});
-      cubes.push({pixels:cube.pixels.slice(mid)});
-    }
-    // Average each cube to get palette colour
-    return cubes.map(c=>{
-      let r=0,g=0,b=0;
-      for(const p of c.pixels){r+=p[0];g+=p[1];b+=p[2];}
-      const n=c.pixels.length||1;
-      return [r/n|0,g/n|0,b/n|0];
-    });
-  }
-
-  function nearestIdx(r,g,b,pal){
-    let best=Infinity,idx=0;
-    for(let i=0;i<pal.length;i++){
-      const dr=r-pal[i][0],dg=g-pal[i][1],db=b-pal[i][2];
-      const d=dr*dr+dg*dg+db*db;
-      if(d<best){best=d;idx=i;}
-    }
-    return idx;
-  }
-
-  // LZW encoder
-  function lzwEncode(indices, minCodeSize) {
-    const clearCode = 1<<minCodeSize;
-    const eofCode   = clearCode+1;
-    let codeSize = minCodeSize+1;
-    let maxCode  = clearCode<<1;
-    const table  = new Map();
-    const output = [];
-    let buf=0,bufBits=0;
-
-    function emit(code){
-      buf|=code<<bufBits;bufBits+=codeSize;
-      while(bufBits>=8){output.push(buf&0xff);buf>>=8;bufBits-=8;}
-    }
-
-    function reset(){
-      table.clear();
-      for(let i=0;i<clearCode;i++) table.set(String(i),i);
-      codeSize=minCodeSize+1;maxCode=clearCode<<1;
-    }
-
-    reset();emit(clearCode);
-    let str=String(indices[0]);
-    for(let i=1;i<indices.length;i++){
-      const next=str+','+indices[i];
-      if(table.has(next)){str=next;}
-      else{
-        emit(table.get(str));
-        if(table.size<4096){table.set(next,table.size);if(table.size>=maxCode&&codeSize<12){codeSize++;maxCode<<=1;}}
-        else{emit(clearCode);reset();}
-        str=String(indices[i]);
-      }
-    }
-    emit(table.get(str));emit(eofCode);
-    if(bufBits>0)output.push(buf&0xff);
-    return output;
-  }
-
-  function writeU16LE(v){return[v&0xff,(v>>8)&0xff];}
-
-  function encodeFrame(imgData, w, h, pal, delay){
-    // Sample pixels
-    const pixels=[];
-    for(let i=0;i<imgData.data.length;i+=4)
-      pixels.push([imgData.data[i],imgData.data[i+1],imgData.data[i+2]]);
-
-    // Map to palette
-    const indices=pixels.map(p=>nearestIdx(p[0],p[1],p[2],pal));
-
-    // Graphic Control Extension (delay)
-    const gce=[0x21,0xf9,0x04,0x00,...writeU16LE(delay),0x00,0x00];
-
-    // Image Descriptor
-    const desc=[0x2c,0,0,0,0,...writeU16LE(w),...writeU16LE(h),0x00];
-
-    // LZW
-    const minCS=Math.max(2,Math.ceil(Math.log2(pal.length)));
-    const lzw=lzwEncode(indices,minCS);
-
-    // Pack LZW into sub-blocks of max 255 bytes
-    const blocks=[];
-    for(let i=0;i<lzw.length;i+=255){
-      const sub=lzw.slice(i,i+255);
-      blocks.push(sub.length,...sub);
-    }
-
-    return [...gce,...desc,minCS,...blocks,0x00];
-  }
-
-  return {
-    encode(frames, w, h, fps){
-      // Build global palette from first frame
-      const sample=[];
-      const step=Math.max(1,Math.floor(frames[0].data.length/4/512));
-      for(let i=0;i<frames[0].data.length;i+=4*step)
-        sample.push([frames[0].data[i],frames[0].data[i+1],frames[0].data[i+2]]);
-      // Also sample from a few other frames
-      for(let fi=1;fi<Math.min(frames.length,5);fi++){
-        const f=frames[fi];
-        for(let i=0;i<f.data.length;i+=4*step*4)
-          sample.push([f.data[i],f.data[i+1],f.data[i+2]]);
-      }
-      const pal=quantize(sample,256);
-      // Pad palette to power of 2
-      const palSize=Math.max(2,1<<Math.ceil(Math.log2(pal.length)));
-      while(pal.length<palSize)pal.push([0,0,0]);
-      const colorTableFlag=Math.log2(palSize)-1;
-
-      const delay=Math.round(100/fps); // centiseconds
-
-      // Header
-      const header=[
-        0x47,0x49,0x46,0x38,0x39,0x61, // GIF89a
-        ...writeU16LE(w),...writeU16LE(h),
-        0x80|colorTableFlag,             // packed: global color table
-        0x00,                            // background color index
-        0x00,                            // pixel aspect ratio
-      ];
-
-      // Global colour table
-      const gct=[];
-      for(const c of pal){gct.push(c[0],c[1],c[2]);}
-
-      // Loop forever: Netscape extension
-      const loop=[0x21,0xff,0x0b,
-        0x4e,0x45,0x54,0x53,0x43,0x41,0x50,0x45,0x32,0x2e,0x30, // NETSCAPE2.0
-        0x03,0x01,0x00,0x00,0x00];
-
-      const frameBytes=frames.map(f=>encodeFrame(f,w,h,pal,delay)).flat();
-
-      const gif=new Uint8Array([...header,...gct,...loop,...frameBytes,0x3b]);
-      return gif;
-    }
-  };
-})();
-
-// ── Format switcher UI ────────────────────────────────────────────────────
-document.getElementById('rec-fmt').addEventListener('change',function(){
-  const isGif=this.value==='gif';
-  document.getElementById('quality-row').style.display=isGif?'none':'flex';
-  document.getElementById('gif-fps-row').style.display=isGif?'flex':'none';
-  document.getElementById('gif-scale-row').style.display=isGif?'flex':'none';
-});
-document.getElementById('gif-fps').addEventListener('input',function(){
-  document.getElementById('gif-fps-val').textContent=this.value;
-});
-document.getElementById('gif-scale').addEventListener('input',function(){
-  document.getElementById('gif-scale-val').textContent=this.value+'%';
-});
-
 // ── Recording ─────────────────────────────────────────────────────────────
 const recBtn=document.getElementById('rec-btn'),recStatus=document.getElementById('rec-status');
 let recActive=false;
@@ -1002,94 +1222,52 @@ function dlBlob(blob,name){
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 
-function resolveMime(fmt){
-  const candidates={
-    'mp4':['video/mp4;codecs=avc1','video/mp4;codecs=h264','video/mp4'],
-    'webm-vp9':['video/webm;codecs=vp9','video/webm;codecs=vp9,opus','video/webm'],
-    'webm-vp8':['video/webm;codecs=vp8','video/webm;codecs=vp8,opus','video/webm'],
-  };
-  for(const m of candidates[fmt]||candidates['webm-vp9']){
-    if(MediaRecorder.isTypeSupported(m)) return m;
-  }
-  return 'video/webm';
+function resolveMime(){
+  const candidates=['video/mp4;codecs=avc1','video/mp4;codecs=h264','video/mp4'];
+  for(const m of candidates){if(MediaRecorder.isTypeSupported(m))return m;}
+  return 'video/webm'; // fallback
 }
 
-function bitrateFor(q){
-  return {high:25_000_000,med:12_000_000,low:5_000_000}[q]||12_000_000;
+function bitrateFor(q,fps){
+  // Higher fps = more motion data = needs more bitrate
+  const fpsScale=fps>=60?1.8:fps>=30?1:0.6;
+  return Math.round({high:25_000_000,med:14_000_000,low:6_000_000}[q]*fpsScale)||14_000_000;
 }
 
 async function startRec(){
   const durSec=parseFloat(document.getElementById('rec-dur').value);
-  const fmt=document.getElementById('rec-fmt').value;
+  const quality=document.getElementById('rec-quality').value;
   const durMs=durSec*1000;
+
+  // ── Performance mode: kill heavy effects for duration of recording ─────────
+  const saved={bgNoise,trailAmt};
+  bgNoise=0; trailAmt=0; noiseDirty=false;
+
+  recStatus.textContent='⚡ Preparing…';
+  // Wait 2 frames so the cleared effects take hold before first encoded frame
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+  const mime=resolveMime();
+  const ext=mime.startsWith('video/mp4')?'mp4':'webm';
+  const bitrate=bitrateFor(quality);
 
   recActive=true;
   recBtn.classList.add('act');recBtn.textContent='● Recording…';
+  recStatus.textContent=`Recording ${durSec}s — ${ext.toUpperCase()}…`;
 
-  // Cursor animation
-  const cx=W/2,cy=H/2,st=performance.now();
+  // Animate cursor in a slow figure-8 during recording
+  const cx=W/2,cy=H/2,recStart=performance.now();
   function animCursor(now){
     if(!recActive)return;
-    const t=(now-st)/durMs,a=t*Math.PI*3;
-    targetX=cx+Math.cos(a*.55)*W*.35;
-    targetY=cy+Math.sin(a*.37)*H*.3;
+    const a=((now-recStart)/durMs)*Math.PI*4;
+    targetX=cx+Math.cos(a*.55)*W*.38;
+    targetY=cy+Math.sin(a*.37)*H*.32;
     requestAnimationFrame(animCursor);
   }
   requestAnimationFrame(animCursor);
 
-  // ── GIF path ────────────────────────────────────────────────────────────
-  if(fmt==='gif'){
-    const gifFps=parseInt(document.getElementById('gif-fps').value);
-    const gifScale=parseInt(document.getElementById('gif-scale').value)/100;
-    const gw=Math.max(2,Math.round(W*gifScale)>>1<<1);
-    const gh=Math.max(2,Math.round(H*gifScale)>>1<<1);
-    const totalFrames=Math.ceil(gifFps*durSec);
-    const frameInterval=1000/gifFps;
-
-    const tmp=document.createElement('canvas');
-    tmp.width=gw;tmp.height=gh;
-    const tc=tmp.getContext('2d');
-    const capturedFrames=[];
-
-    recStatus.textContent=`0 / ${totalFrames} frames…`;
-
-    await new Promise(resolve=>{
-      let fi=0,lastCapture=performance.now();
-      function captureLoop(now){
-        if(fi>=totalFrames){resolve();return;}
-        if(now-lastCapture>=frameInterval){
-          tc.drawImage(canvas,0,0,gw,gh);
-          capturedFrames.push(tc.getImageData(0,0,gw,gh));
-          fi++;lastCapture=now;
-          recStatus.textContent=`${fi} / ${totalFrames} frames…`;
-        }
-        requestAnimationFrame(captureLoop);
-      }
-      requestAnimationFrame(captureLoop);
-    });
-
-    recStatus.textContent='⏳ Encoding GIF…';
-    // Yield to browser so status text renders before heavy computation
-    await new Promise(r=>setTimeout(r,30));
-
-    const gif=GIF.encode(capturedFrames,gw,gh,gifFps);
-    dlBlob(new Blob([gif],{type:'image/gif'}),'glyph-birds.gif');
-    const sizeMB=(gif.length/1_000_000).toFixed(1);
-    recStatus.textContent=`✓ GIF downloaded — ${sizeMB} MB`;
-    recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record';
-    return;
-  }
-
-  // ── Video path (MP4 / WebM) ──────────────────────────────────────────
-  const quality=document.getElementById('rec-quality').value;
-  const mime=resolveMime(fmt);
-  const ext=mime.startsWith('video/mp4')?'mp4':'webm';
-  const bitrate=bitrateFor(quality);
-
-  recStatus.textContent=`Recording ${durSec}s — ${mime.split(';')[0].replace('video/','')}…`;
-
   const chunks=[];
-  const stream=canvas.captureStream(30);
+  const stream=canvas.captureStream(60);
   let mr;
   try{
     mr=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:bitrate});
@@ -1097,15 +1275,22 @@ async function startRec(){
     mr=new MediaRecorder(stream,{videoBitsPerSecond:bitrate});
   }
 
+  function restoreSettings(){
+    bgNoise=saved.bgNoise; trailAmt=saved.trailAmt;
+    noiseDirty=true; recActive=false;
+    recBtn.classList.remove('act'); recBtn.textContent='⏺ Record MP4';
+  }
+
   mr.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data);};
   mr.onstop=()=>{
-    recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record';
+    restoreSettings();
     const actualMime=mr.mimeType||mime;
     const actualExt=actualMime.startsWith('video/mp4')?'mp4':'webm';
     const blob=new Blob(chunks,{type:actualMime});
     dlBlob(blob,`glyph-birds.${actualExt}`);
-    recStatus.textContent=`✓ ${actualExt.toUpperCase()} downloaded — ${(blob.size/1e6).toFixed(1)} MB`;
+    recStatus.textContent=`✓ ${actualExt.toUpperCase()} saved — ${(blob.size/1e6).toFixed(1)} MB`;
   };
+
   mr.start(100);
   setTimeout(()=>{if(mr.state!=='inactive')mr.stop();},durMs);
 }
