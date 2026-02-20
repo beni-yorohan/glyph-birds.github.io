@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glyph Birds</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a0a;--surface:#111;--surface2:#181818;
+  --border:#1e1e1e;--border2:#282828;
+  --text:#aaa;--text2:#444;--text3:#2a2a2a;
+  --accent:#ccc;--accent2:#888;
+  --red:#888;
+  --lw:280px;--rw:264px;
+  --r:5px;
+}
+body.light{
+  --bg:#f5f5f5;--surface:#efefef;--surface2:#e6e6e6;
+  --border:#ddd;--border2:#ccc;
+  --text:#222;--text2:#888;--text3:#bbb;
+  --accent:#111;--accent2:#555;
+  --red:#555;
+}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Courier New',monospace;font-size:11px;
+  height:100vh;overflow:hidden;
+  display:grid;
+  grid-template-columns:var(--lw) 1fr var(--rw);
+  transition:background .3s,color .3s;
+}
+::-webkit-scrollbar{width:2px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-button{display:none;height:0;}
+
+/* ═══ LEFT PANEL ═══ */
+#lp{
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:background .3s,border-color .3s;
+}
+.lp-top{
+  padding:20px 18px 15px 22px;border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;
+  transition:border-color .3s;
+}
+.appname{font-family:'Courier New',monospace;font-size:15px;letter-spacing:.08em;color:var(--accent);line-height:1.1;}
+.appsub{font-size:8px;color:var(--text2);letter-spacing:.2em;text-transform:uppercase;margin-top:5px;}
+.theme-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-top:2px;}
+.th-lbl{font-size:8px;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;}
+.sw{
+  width:34px;height:18px;background:var(--border2);border-radius:9px;
+  position:relative;cursor:pointer;transition:background .25s;border:none;flex-shrink:0;
+}
+.sw::after{
+  content:'';position:absolute;top:2.5px;left:2.5px;
+  width:13px;height:13px;border-radius:50%;background:var(--text2);
+  transition:transform .25s,background .25s;
+}
+body.light .sw{background:var(--accent2);}
+body.light .sw::after{transform:translateX(16px);background:#fff;}
+#ls{flex:1;overflow-y:auto;padding-bottom:40px;}
+.sec{border-bottom:1px solid var(--border);padding:12px 18px 14px 22px;transition:border-color .3s;}
+.sh{
+  font-size:7.5px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--text2);margin-bottom:11px;display:flex;align-items:center;gap:8px;
+}
+.sh::after{content:'';flex:1;height:1px;background:var(--border);}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.row:last-child{margin-bottom:0;}
+.lbl{color:var(--text);flex-shrink:0;font-size:10px;width:84px;}
+.val{color:var(--accent);min-width:30px;text-align:right;font-size:10px;flex-shrink:0;}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;flex:1;
+  height:2px;background:var(--border2);border-radius:1px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:11px;height:11px;
+  border-radius:50%;background:var(--accent);cursor:pointer;transition:transform .1s;
+}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.35);}
+input[type=color]{
+  -webkit-appearance:none;appearance:none;
+  width:28px;height:22px;border:1px solid var(--border2);
+  border-radius:4px;background:none;cursor:pointer;padding:2px;
+}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:2px;}
+.dz{
+  border:1px dashed var(--border2);border-radius:var(--r);
+  padding:11px 10px;text-align:center;cursor:pointer;
+  color:var(--text2);font-size:10px;line-height:1.7;
+  transition:border-color .2s,color .2s;position:relative;
+}
+.dz:hover,.dz.ov{border-color:var(--accent);color:var(--accent);}
+.dz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.dz-n{margin-top:4px;font-size:9px;color:var(--accent);min-height:12px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px;}
+.chip{
+  background:var(--surface2);border:1px solid var(--border2);color:var(--text2);
+  font-family:'Courier New',monospace;font-size:8.5px;padding:6px 4px;
+  border-radius:4px;cursor:pointer;text-align:center;line-height:1.5;
+  transition:border-color .15s,color .15s;
+}
+.chip:hover{border-color:var(--accent2);color:var(--text);}
+.chip.on{border-color:var(--accent);color:var(--accent);}
+.chip b{display:block;font-size:7.5px;font-weight:400;opacity:.5;margin-top:1px;}
+.tp{display:flex;gap:4px;}
+.tog{
+  flex:1;padding:7px 4px;background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text2);font-family:'Courier New',monospace;font-size:9px;
+  border-radius:4px;cursor:pointer;text-align:center;
+  transition:border-color .15s,color .15s;
+}
+.tog:hover{border-color:var(--accent2);color:var(--text);}
+.tog.on{border-color:var(--accent);color:var(--accent);}
+select{
+  flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);
+  font-family:'Courier New',monospace;font-size:10px;padding:4px 7px;
+  border-radius:4px;outline:none;cursor:pointer;
+}
+select option{background:var(--surface);}
+.btn{
+  width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-family:'Courier New',monospace;font-size:10px;
+  letter-spacing:.1em;cursor:pointer;border-radius:var(--r);text-transform:uppercase;
+  transition:border-color .2s,color .2s;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.muted:hover{border-color:var(--text2);color:var(--text2);}
+#dw{display:flex;justify-content:center;margin:8px 0 10px;}
+
+/* ═══ STAGE ═══ */
+#stage{
+  background:var(--bg);display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;cursor:none;transition:background .3s;
+}
+#cw{transform-origin:center;flex-shrink:0;box-shadow:0 12px 80px rgba(0,0,0,.7),0 0 0 1px rgba(128,128,128,.07);}
+#card{display:block;cursor:none;}
+
+/* ═══ RIGHT PANEL ═══ */
+#rp{
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:background .3s,border-color .3s;
+}
+#rs{flex:1;overflow-y:auto;padding-bottom:40px;}
+
+.about{padding:22px 18px 20px;border-bottom:1px solid var(--border);transition:border-color .3s;}
+.gd{
+  font-family:'Courier New',monospace;font-size:22px;
+  color:var(--accent2);opacity:.65;letter-spacing:-.02em;
+  margin-bottom:16px;line-height:1;
+}
+.about h2{
+  font-family:'Courier New',monospace;
+  font-size:12px;color:var(--accent);margin-bottom:11px;line-height:1.5;letter-spacing:.04em;
+}
+.about p{font-size:10px;color:var(--text2);line-height:1.8;margin-bottom:8px;}
+.about p:last-of-type{margin-bottom:0;}
+.tag{
+  display:inline-block;font-size:7.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--text3);border:1px solid var(--border);border-radius:3px;
+  padding:3px 8px;margin-top:12px;
+}
+
+.exsec{padding:14px 18px 16px;border-bottom:1px solid var(--border);transition:border-color .3s;}
+.exsec .sh{font-size:7.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.exsec .sh::after{content:'';flex:1;height:1px;background:var(--border);}
+
+#rec-btn{
+  width:100%;padding:11px;background:var(--surface2);
+  border:1px solid var(--border2);color:var(--text);
+  font-family:'Courier New',monospace;font-size:10px;letter-spacing:.12em;
+  cursor:pointer;border-radius:var(--r);text-transform:uppercase;
+  transition:border-color .2s,color .2s;margin-top:4px;
+}
+#rec-btn:hover{border-color:var(--accent);color:var(--accent);}
+#rec-btn.act{border-color:var(--red);color:var(--red);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#rec-status{font-size:9px;color:var(--text2);margin-top:7px;text-align:center;min-height:13px;line-height:1.5;}
+
+.tips{padding:14px 18px 18px;}
+.tips .sh{font-size:7.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--text2);margin-bottom:11px;display:flex;align-items:center;gap:8px;}
+.tips .sh::after{content:'';flex:1;height:1px;background:var(--border);}
+.tips p{font-size:9.5px;color:var(--text2);line-height:2;}
+
+.cred{padding:14px 18px;border-top:1px solid var(--border);transition:border-color .3s;}
+.cred a{font-size:9px;color:var(--text2);text-decoration:none;letter-spacing:.04em;transition:color .2s;}
+.cred a:hover{color:var(--accent);}
+.cred .made{font-size:8px;color:var(--text3);margin-top:4px;letter-spacing:.06em;}
+
+.grad-stop-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
+.grad-stop-row input[type=color]{width:24px;height:22px;flex-shrink:0;}
+.grad-stop-row input[type=range]{flex:1;}
+.grad-stop-row .stop-pct{font-size:9px;color:var(--text2);min-width:28px;text-align:right;flex-shrink:0;}
+.grad-stop-row .del-stop{
+  width:16px;height:16px;background:none;border:1px solid var(--border2);
+  color:var(--text2);border-radius:3px;cursor:pointer;font-size:9px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:border-color .15s,color .15s;padding:0;line-height:1;
+}
+.grad-stop-row .del-stop:hover{border-color:var(--text2);color:var(--text);}
+
+/* cursor dot */
+#cd{
+  position:fixed;width:5px;height:5px;border-radius:50%;
+  background:var(--accent);pointer-events:none;transform:translate(-50%,-50%);
+  z-index:9999;opacity:0;transition:opacity .12s;mix-blend-mode:difference;
+}
+#cd.on{opacity:1;}
+</style>
+</head>
+<body>
+<div id="cd"></div>
+
+<!-- LEFT PANEL -->
+<div id="lp">
+  <div class="lp-top">
+    <div>
+      <div class="appname">Glyph Birds</div>
+      <div class="appsub">Typographic Flock Sim</div>
+    </div>
+    <div class="theme-wrap">
+      <span class="th-lbl">Light</span>
+      <button class="sw" id="tsw" title="Toggle light mode"></button>
+    </div>
+  </div>
+  <div id="ls">
+    <div class="sec">
+      <div class="sh">Font</div>
+      <div class="dz" id="fd">Drop font here<br><small style="opacity:.4;font-size:9px">TTF · OTF · WOFF · WOFF2</small><input type="file" id="ff" accept=".ttf,.otf,.woff,.woff2"></div>
+      <div class="dz-n" id="fn"></div>
+    </div>
+    <div class="sec">
+      <div class="sh">Typography</div>
+      <div class="row"><span class="lbl">Glyph size</span><input type="range" id="glyph-size" min="8" max="160" value="28"><span class="val" id="glyph-size-val">28</span></div>
+      <div class="row"><span class="lbl">Weight</span><input type="range" id="glyph-weight" min="100" max="900" step="100" value="400"><span class="val" id="glyph-weight-val">400</span></div>
+      <div class="row"><span class="lbl">Flap speed</span><input type="range" id="flap-speed" min="2" max="60" value="16"><span class="val" id="flap-speed-val">16</span></div>
+    </div>
+    <div class="sec">
+      <div class="sh">Flock</div>
+      <div class="row"><span class="lbl">Count</span><input type="range" id="bird-count" min="1" max="200" value="40"><span class="val" id="bird-count-val">40</span></div>
+      <div class="row"><span class="lbl">Follow speed</span><input type="range" id="follow-speed" min="1" max="100" value="55"><span class="val" id="follow-speed-val">55</span></div>
+      <div class="row"><span class="lbl">Spread</span><input type="range" id="spread" min="0" max="100" value="100"><span class="val" id="spread-val">100</span></div>
+      <div class="row"><span class="lbl">Min spacing</span><input type="range" id="min-space" min="0" max="120" value="12"><span class="val" id="min-space-val">12</span></div>
+      <div class="row"><span class="lbl">Drift</span><input type="range" id="drift" min="0" max="100" value="30"><span class="val" id="drift-val">30</span></div>
+    </div>
+    <div class="sec">
+      <div class="sh">Flight Mode</div>
+      <div class="tp">
+        <button class="tog on" id="mc">↖ Cursor</button>
+        <button class="tog" id="mf">→ Free</button>
+      </div>
+      <div id="fc" style="display:none;margin-top:12px">
+        <div style="font-size:8px;color:var(--text2);text-align:center;letter-spacing:.15em;margin-bottom:4px">DIRECTION</div>
+        <div id="dw"><canvas id="dirwheel" width="90" height="90"></canvas></div>
+        <div class="row"><span class="lbl">Speed</span><input type="range" id="free-speed" min="1" max="20" value="6"><span class="val" id="free-speed-val">6</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sh">Behaviour</div>
+      <div class="row"><span class="lbl">Rotate to fly</span><input type="range" id="rotate-amt" min="0" max="100" value="80"><span class="val" id="rotate-amt-val">80%</span></div>
+      <div class="row"><span class="lbl">Stretch</span><input type="range" id="stretch-amt" min="0" max="100" value="60"><span class="val" id="stretch-amt-val">60%</span></div>
+      <div class="row"><span class="lbl">Ghost trail</span><input type="range" id="trail-amt" min="0" max="100" value="40"><span class="val" id="trail-amt-val">40%</span></div>
+      <div class="row"><span class="lbl">Depth layers</span><input type="range" id="depth-amt" min="0" max="100" value="70"><span class="val" id="depth-amt-val">70%</span></div>
+      <div class="row"><span class="lbl">Speed flap</span><input type="range" id="speed-flap" min="0" max="100" value="80"><span class="val" id="speed-flap-val">80%</span></div>
+    </div>
+    <div class="sec">
+      <div class="sh">Colors</div>
+      <!-- bg mode toggle -->
+      <div class="tp" style="margin-bottom:11px">
+        <button class="tog on" id="bg-solid-btn">Solid</button>
+        <button class="tog" id="bg-grad-btn">Gradient</button>
+      </div>
+
+      <!-- solid bg -->
+      <div id="solid-controls">
+        <div class="row"><span class="lbl">Background</span><input type="color" id="bg-color" value="#0a0a0a"></div>
+      </div>
+
+      <!-- gradient bg -->
+      <div id="grad-controls" style="display:none">
+        <div class="row" style="margin-bottom:10px">
+          <span class="lbl">Direction</span>
+          <select id="grad-dir">
+            <option value="tb">Top → Bottom</option>
+            <option value="lr">Left → Right</option>
+            <option value="tl">↘ Diagonal</option>
+            <option value="radial">Radial</option>
+          </select>
+        </div>
+        <div id="grad-stops"></div>
+        <button class="btn" id="grad-add" style="margin-top:6px;font-size:9px;padding:6px">+ Add stop</button>
+      </div>
+
+      <!-- noise -->
+      <div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--border)">
+        <div class="row"><span class="lbl">Bg noise</span><input type="range" id="bg-noise" min="0" max="100" value="0"><span class="val" id="bg-noise-val">0%</span></div>
+      </div>
+
+      <div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--border)">
+        <div class="row"><span class="lbl">Birds</span><input type="color" id="bird-color" value="#cccccc"></div>
+        <div class="row"><span class="lbl">Opacity</span><input type="range" id="bird-opacity" min="5" max="100" value="85"><span class="val" id="bird-opacity-val">85%</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sh">Background Image</div>
+      <div class="dz" id="bgdrop">Drop image here<br><small style="opacity:.4;font-size:9px">JPG · PNG · WEBP · GIF</small><input type="file" id="bgfile" accept="image/*"></div>
+      <div class="dz-n" id="bgname"></div>
+      <div class="row" style="margin-top:9px"><span class="lbl">Fit</span><select id="bg-fit"><option value="cover">Cover</option><option value="contain">Contain</option><option value="stretch">Stretch</option></select></div>
+      <div class="row"><span class="lbl">Img opacity</span><input type="range" id="bg-opacity" min="5" max="100" value="100"><span class="val" id="bg-opacity-val">100%</span></div>
+      <button class="btn muted" id="bg-clear" style="margin-top:6px">✕ Remove image</button>
+    </div>
+    <div class="sec">
+      <div class="sh">Canvas Size</div>
+      <div class="g2">
+        <button class="chip" data-w="1080" data-h="1080">Square<b>1:1</b></button>
+        <button class="chip" data-w="1080" data-h="1350">Portrait<b>4:5</b></button>
+        <button class="chip" data-w="1080" data-h="1920">Reel<b>9:16</b></button>
+        <button class="chip" data-w="1080" data-h="566">Landscape<b>1.91:1</b></button>
+        <button class="chip" data-w="1080" data-h="608">Carousel<b>16:9</b></button>
+        <button class="chip" data-w="1080" data-h="810">Carousel<b>4:3</b></button>
+      </div>
+      <div class="row"><span class="lbl">Width</span><input type="range" id="card-w" min="200" max="1200" value="700"><span class="val" id="card-w-val">700</span></div>
+      <div class="row"><span class="lbl">Height</span><input type="range" id="card-h" min="200" max="1200" value="500"><span class="val" id="card-h-val">500</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- STAGE -->
+<div id="stage"><div id="cw"><canvas id="card"></canvas></div></div>
+
+<!-- RIGHT PANEL -->
+<div id="rp">
+  <div id="rs">
+    <div class="about">
+      <div class="gd">/ | \ &gt; &lt; [ ]</div>
+      <h2>A flock of punctuation,<br>alive on your screen.</h2>
+      <p>Glyph Birds transforms typographic symbols into living creatures. Each punctuation mark becomes a bird — wings open, wings closed — flapping through the canvas in formation.</p>
+      <p>Move your cursor and the flock follows, scattering and regrouping like starlings at dusk. Switch to Free Flight and set a direction: they migrate endlessly, wrapping the edges of the canvas.</p>
+      <p>Drop in any font. Tune the flock. Record a moment.</p>
+      <span class="tag">typographic · generative · interactive</span>
+    </div>
+    <div class="exsec">
+      <div class="sh">Export</div>
+      <div class="row"><span class="lbl">Duration</span><input type="range" id="rec-dur" min="2" max="30" value="6"><span class="val" id="rec-dur-val">6s</span></div>
+      <button id="rec-btn">⏺ Record MP4</button>
+      <div id="rec-status"></div>
+    </div>
+    <div class="tips">
+      <div class="sh">Export</div>
+      <p style="line-height:2">
+        → Run <strong>glyph-birds-server.py</strong> first<br>
+        → Then hit Record for a true MP4<br>
+        → Without the server, saves as WebM<br>
+        → WebM plays in Chrome, VLC & more
+      </p>
+    </div>
+  </div>
+  <div class="cred">
+    <a href="https://www.instagram.com/beniyorohan.design" target="_blank" rel="noopener">@beniyorohan.design</a>
+    <div class="made">Designed with Glyph Birds</div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('card');
+const ctx=canvas.getContext('2d');
+const stage=document.getElementById('stage');
+
+let W=700,H=500;
+let bgColor='#0a0a0a',birdColor='#cccccc';
+let birdOpacity=.85,glyphSize=28,glyphWeight=400,flapSpeed=16;
+let birdCount=40,followSpeed=55,spread=100,minSpace=12,drift=30;
+let fontFamily='serif';
+let rotateAmt=.80,stretchAmt=.60,trailAmt=.40,depthAmt=.70,speedFlap=.80;
+let bgImage=null,bgFit='cover',bgImgOpacity=1;
+
+// Background style
+let bgMode='solid'; // 'solid' | 'gradient'
+let gradDir='tb';   // 'tb' | 'lr' | 'tl' | 'radial'
+let gradStops=[{color:'#0a0a0a',pos:0},{color:'#444444',pos:100}];
+let bgNoise=0; // 0–1
+// Noise canvas for bg grain effect
+const noiseCanvas=document.createElement('canvas');
+const noiseCtx=noiseCanvas.getContext('2d');
+let noiseW=0,noiseH=0,noiseDirty=true;
+function ensureNoise(){
+  if(noiseW===W&&noiseH===H&&!noiseDirty)return;
+  noiseCanvas.width=W;noiseCanvas.height=H;noiseW=W;noiseH=H;
+  const id=noiseCtx.createImageData(W,H);
+  for(let i=0;i<id.data.length;i+=4){
+    const v=Math.random()*255|0;
+    id.data[i]=id.data[i+1]=id.data[i+2]=v;id.data[i+3]=255;
+  }
+  noiseCtx.putImageData(id,0,0);
+  noiseDirty=false;
+}
+
+// Wing-only glyphs — bracket/slash shapes that read as wings flapping
+const FLAP_CLOSED=['|','/','\\','!'];
+const FLAP_OPEN=['<','>','[',']','{','}','(',')'];
+let glyphPool=[];
+function buildPool(cl,op){
+  glyphPool=[];
+  const ml=Math.max(cl.length,op.length);
+  for(let i=0;i<ml;i++){
+    if(i<op.length)glyphPool.push(op[i]);
+    if(i<cl.length)glyphPool.push(cl[i]);
+    if(i<op.length)glyphPool.push(op[i]); // open twice = spread feeling
+  }
+}
+buildPool(FLAP_CLOSED,FLAP_OPEN);
+
+let flightMode='cursor',flightAngle=0,freeSpeed=6;
+let targetX=W/2,targetY=H/2,smoothCX=W/2,smoothCY=H/2;
+let birds=[],time=0;
+
+// Perlin noise
+const _p=new Uint8Array(512);
+(()=>{const p=Array.from({length:256},(_,i)=>i);for(let i=255;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}for(let i=0;i<512;i++)_p[i]=p[i&255];})();
+const fade=t=>t*t*t*(t*(t*6-15)+10);
+const lp=(a,b,t)=>a+(b-a)*t;
+const grad=(h,x,y)=>{const u=h<8?x:y,v=h<4?y:h===12||h===14?x:0;return((h&1)?-u:u)+((h&2)?-v:v);};
+function noise2(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y);
+  const u=fade(xf),v=fade(yf),a=_p[X]+Y,b=_p[X+1]+Y;
+  return lp(lp(grad(_p[a]&15,xf,yf),grad(_p[b]&15,xf-1,yf),u),lp(grad(_p[a+1]&15,xf,yf-1),grad(_p[b+1]&15,xf-1,yf-1),u),v);
+}
+
+function spawnBirds(){
+  const old=birds;birds=[];
+  for(let i=0;i<birdCount;i++){
+    const prev=old[i],a=Math.random()*Math.PI*2;
+    birds.push({
+      x:prev?prev.x:-200+Math.random()*(W+400),
+      y:prev?prev.y:-200+Math.random()*(H+400),
+      vx:Math.cos(a),vy:Math.sin(a),
+      nx:Math.random()*1000,ny:Math.random()*1000+500,
+      glyphIdx:Math.floor(Math.random()*glyphPool.length),
+      glyphTimer:Math.random(),
+      maxSpeed:20+Math.random()*15,
+      depth:Math.random(),trail:[],
+      smoothAngle:0,flyAngle:0,
+      restOX:(Math.random()-.5)*Math.max(W,700)*1.2,
+      restOY:(Math.random()-.5)*Math.max(H,500)*1.2,
+    });
+  }
+}
+
+function resizeCanvas(w,h){W=w;H=h;canvas.width=W;canvas.height=H;}
+function fitCanvas(){
+  const sw=stage.clientWidth,sh=stage.clientHeight;
+  const sc=Math.min((sw-48)/W,(sh-48)/H,1);
+  document.getElementById('cw').style.transform=`scale(${sc})`;
+}
+window.addEventListener('resize',fitCanvas);
+
+let lastTime=0;
+function loop(ts){
+  const dt=Math.min((ts-lastTime)/1000,.05);lastTime=ts;time+=dt;
+  smoothCX+=(targetX-smoothCX)*(.5+(followSpeed/100)*.5);
+  smoothCY+=(targetY-smoothCY)*(.5+(followSpeed/100)*.5);
+
+  // ── Draw background ──
+  if(bgMode==='gradient'&&gradStops.length>1){
+    const sorted=[...gradStops].sort((a,b)=>a.pos-b.pos);
+    let grad;
+    if(gradDir==='radial'){
+      grad=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)/2);
+    } else {
+      const coords={tb:[0,0,0,H],lr:[0,0,W,0],tl:[0,0,W,H]};
+      const[x0,y0,x1,y1]=coords[gradDir]||coords.tb;
+      grad=ctx.createLinearGradient(x0,y0,x1,y1);
+    }
+    sorted.forEach(s=>grad.addColorStop(Math.max(0,Math.min(1,s.pos/100)),s.color));
+    ctx.fillStyle=grad;
+  } else {
+    ctx.fillStyle=bgColor;
+  }
+  ctx.fillRect(0,0,W,H);
+
+  // Noise overlay
+  if(bgNoise>0){
+    ensureNoise();
+    ctx.save();ctx.globalAlpha=bgNoise*0.18;ctx.globalCompositeOperation='overlay';
+    ctx.drawImage(noiseCanvas,0,0);ctx.restore();
+    noiseDirty=true; // regenerate each frame for animated grain
+  }
+
+  if(bgImage){
+    ctx.save();ctx.globalAlpha=bgImgOpacity;
+    const iw=bgImage.naturalWidth,ih=bgImage.naturalHeight;
+    if(bgFit==='stretch')ctx.drawImage(bgImage,0,0,W,H);
+    else if(bgFit==='contain'){const s=Math.min(W/iw,H/ih),dw=iw*s,dh=ih*s;ctx.drawImage(bgImage,(W-dw)/2,(H-dh)/2,dw,dh);}
+    else{const s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s;ctx.drawImage(bgImage,(W-dw)/2,(H-dh)/2,dw,dh);}
+    ctx.globalAlpha=1;ctx.restore();
+  }
+
+  const hx=birdColor.replace('#','');
+  const r=parseInt(hx.slice(0,2),16),g=parseInt(hx.slice(2,4),16),b=parseInt(hx.slice(4,6),16);
+  ctx.textBaseline='middle';ctx.textAlign='center';
+  const ds=(drift/100)*1.3;
+
+  for(let i=0;i<birds.length;i++){
+    const bird=birds[i];
+    if(flightMode==='free'){
+      const nx=noise2(time*.12+bird.nx,0),ny=noise2(0,time*.12+bird.ny);
+      bird.vx=Math.cos(flightAngle)*freeSpeed+nx*ds*1.5;
+      bird.vy=Math.sin(flightAngle)*freeSpeed+ny*ds*1.5;
+      bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
+      const g2=glyphSize*2;
+      if(bird.x<-g2)bird.x=W+g2;if(bird.x>W+g2)bird.x=-g2;
+      if(bird.y<-g2)bird.y=H+g2;if(bird.y>H+g2)bird.y=-g2;
+    }else{
+      const nx=noise2(time*.12+bird.nx,0),ny=noise2(0,time*.12+bird.ny);
+      bird.restOX+=nx*(ds+.3);bird.restOY+=ny*(ds+.3);
+      const mo=(spread/100)*Math.max(W,H)*.65+10;
+      bird.restOX=Math.max(-mo,Math.min(mo,bird.restOX));
+      bird.restOY=Math.max(-mo,Math.min(mo,bird.restOY));
+      const tx=smoothCX+bird.restOX,ty=smoothCY+bird.restOY;
+      const dx=tx-bird.x,dy=ty-bird.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
+      const cs=(followSpeed/100)*2.2*(.3+dist/20);
+      bird.vx+=(dx/dist)*cs*60*dt;bird.vy+=(dy/dist)*cs*60*dt;
+      for(let k=0;k<birds.length;k++){
+        if(k===i)continue;
+        const sdx=bird.x-birds[k].x,sdy=bird.y-birds[k].y,sd=Math.sqrt(sdx*sdx+sdy*sdy);
+        if(sd<minSpace&&sd>0){const psh=(minSpace-sd)/minSpace*.25;bird.vx+=(sdx/sd)*psh;bird.vy+=(sdy/sd)*psh;}
+      }
+      const bm=spread+80;
+      if(bird.x<-bm)bird.vx+=.5;if(bird.x>W+bm)bird.vx-=.5;
+      if(bird.y<-bm)bird.vy+=.5;if(bird.y>H+bm)bird.vy-=.5;
+      bird.vx*=.60;bird.vy*=.60;
+      const sp=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy);
+      if(sp>bird.maxSpeed){bird.vx=(bird.vx/sp)*bird.maxSpeed;bird.vy=(bird.vy/sp)*bird.maxSpeed;}
+      bird.x+=bird.vx*dt*60;bird.y+=bird.vy*dt*60;
+    }
+
+    const gs=glyphSize*3;
+    if(bird.x<-gs||bird.x>W+gs||bird.y<-gs||bird.y>H+gs){bird.trail=[];continue;}
+    const opacity=birdOpacity;
+    if(opacity<.01){bird.trail=[];continue;}
+
+    const sp2=Math.sqrt(bird.vx*bird.vx+bird.vy*bird.vy);
+    const sn=Math.min(sp2/bird.maxSpeed,1);
+
+    const df=speedFlap>0?(1/flapSpeed)*(1+(1-sn)*speedFlap*3):1/flapSpeed;
+    bird.glyphTimer+=dt;
+    if(bird.glyphTimer>=df){bird.glyphTimer-=df;bird.glyphIdx=(bird.glyphIdx+1)%glyphPool.length;}
+
+    const dsc=depthAmt>0?1-bird.depth*depthAmt*.55:1;
+    const dbr=depthAmt>0?1-bird.depth*depthAmt*.45:1;
+
+    const fa=sp2>.5?Math.atan2(bird.vy,bird.vx):bird.flyAngle;
+    bird.flyAngle=fa;
+    let da=fa-bird.smoothAngle;
+    while(da>Math.PI)da-=Math.PI*2;while(da<-Math.PI)da+=Math.PI*2;
+    bird.smoothAngle+=da*.18;
+    const drawA=bird.smoothAngle*rotateAmt;
+
+    const sx=stretchAmt>0?1+sn*stretchAmt*.7:1;
+    const sy=stretchAmt>0?1-sn*stretchAmt*.35:1;
+
+    bird.trail.push({x:bird.x,y:bird.y,angle:drawA});
+    const mt=Math.floor(trailAmt*6)+1;
+    if(bird.trail.length>mt)bird.trail.shift();
+
+    if(trailAmt>0&&bird.trail.length>1){
+      for(let t=0;t<bird.trail.length-1;t++){
+        const tp=bird.trail[t];
+        const tf=(t/bird.trail.length)*trailAmt*.35*opacity*dbr;
+        if(tf<.005)continue;
+        const tsc=dsc*(.7+t/bird.trail.length*.3);
+        ctx.save();ctx.translate(tp.x,tp.y);ctx.rotate(tp.angle);ctx.scale(sx*tsc,sy*tsc);
+        ctx.font=`${glyphWeight} ${glyphSize}px ${fontFamily}`;
+        ctx.fillStyle=`rgba(${r},${g},${b},${tf})`;ctx.fillText(glyphPool[bird.glyphIdx],0,0);
+        ctx.restore();
+      }
+    }
+    ctx.save();ctx.translate(bird.x,bird.y);ctx.rotate(drawA);ctx.scale(sx,sy);
+    ctx.font=`${glyphWeight} ${glyphSize*dsc}px ${fontFamily}`;
+    ctx.fillStyle=`rgba(${r},${g},${b},${opacity*dbr})`;ctx.fillText(glyphPool[bird.glyphIdx],0,0);
+    ctx.restore();
+  }
+  requestAnimationFrame(loop);
+}
+
+// cursor
+const cd=document.getElementById('cd');
+stage.addEventListener('mousemove',e=>{
+  cd.style.left=e.clientX+'px';cd.style.top=e.clientY+'px';
+  const rect=canvas.getBoundingClientRect();
+  targetX=(e.clientX-rect.left)*(W/rect.width);
+  targetY=(e.clientY-rect.top)*(H/rect.height);
+});
+stage.addEventListener('mouseenter',()=>cd.classList.add('on'));
+stage.addEventListener('mouseleave',()=>cd.classList.remove('on'));
+
+// theme toggle
+let bgUserSet=false,birdUserSet=false;
+document.getElementById('tsw').addEventListener('click',()=>{
+  document.body.classList.toggle('light');
+  const light=document.body.classList.contains('light');
+  if(!bgUserSet){bgColor=light?'#f5f5f5':'#0a0a0a';document.getElementById('bg-color').value=bgColor;}
+  if(!birdUserSet){birdColor=light?'#111':'#ccc';document.getElementById('bird-color').value=birdColor;}
+  drawWheel();
+});
+
+// font
+async function loadFont(file){
+  const url=URL.createObjectURL(file);
+  const name='GBF'+Date.now();
+  const face=new FontFace(name,`url(${url})`);
+  try{
+    await face.load();document.fonts.add(face);fontFamily=name;
+    document.getElementById('fn').textContent='✓ '+file.name;
+    const tc=document.createElement('canvas').getContext('2d');
+    tc.font=`400 40px ${name}`;tc.canvas.width=tc.canvas.height=60;
+    const cl=FLAP_CLOSED.filter(c=>tc.measureText(c).width>0);
+    const op=FLAP_OPEN.filter(c=>tc.measureText(c).width>0);
+    if(cl.length+op.length>=4){buildPool(cl.length?cl:FLAP_CLOSED,op.length?op:FLAP_OPEN);}
+    document.getElementById('fn').textContent+=' ('+glyphPool.length+' wing glyphs)';
+  }catch(e){document.getElementById('fn').textContent='✗ failed';}
+}
+document.getElementById('fd').addEventListener('dragover',e=>{e.preventDefault();document.getElementById('fd').classList.add('ov');});
+document.getElementById('fd').addEventListener('dragleave',()=>document.getElementById('fd').classList.remove('ov'));
+document.getElementById('fd').addEventListener('drop',e=>{e.preventDefault();document.getElementById('fd').classList.remove('ov');const f=e.dataTransfer.files[0];if(f)loadFont(f);});
+document.getElementById('ff').addEventListener('change',e=>{if(e.target.files[0])loadFont(e.target.files[0]);});
+
+// controls
+function bind(id,vid,unit,fn){
+  const el=document.getElementById(id),vl=vid?document.getElementById(vid):null;
+  el.addEventListener('input',()=>{const v=parseFloat(el.value);if(vl)vl.textContent=v+unit;fn(v);});
+}
+bind('glyph-size','glyph-size-val','',v=>glyphSize=v);
+bind('glyph-weight','glyph-weight-val','',v=>glyphWeight=v);
+bind('flap-speed','flap-speed-val','',v=>flapSpeed=v);
+bind('bird-count','bird-count-val','',v=>{birdCount=Math.round(v);spawnBirds();});
+bind('follow-speed','follow-speed-val','',v=>followSpeed=v);
+bind('spread','spread-val','',v=>spread=v);
+bind('min-space','min-space-val','',v=>minSpace=v);
+bind('drift','drift-val','',v=>drift=v);
+bind('bird-opacity','bird-opacity-val','%',v=>birdOpacity=v/100);
+bind('rotate-amt','rotate-amt-val','%',v=>rotateAmt=v/100);
+bind('stretch-amt','stretch-amt-val','%',v=>stretchAmt=v/100);
+bind('trail-amt','trail-amt-val','%',v=>trailAmt=v/100);
+bind('depth-amt','depth-amt-val','%',v=>depthAmt=v/100);
+bind('speed-flap','speed-flap-val','%',v=>speedFlap=v/100);
+bind('free-speed','free-speed-val','',v=>freeSpeed=v);
+bind('rec-dur','rec-dur-val','s',()=>{});
+document.getElementById('bg-color').addEventListener('input',e=>{bgColor=e.target.value;bgUserSet=true;});
+document.getElementById('bird-color').addEventListener('input',e=>{birdColor=e.target.value;birdUserSet=true;});
+
+// flight mode
+document.getElementById('mc').addEventListener('click',()=>{
+  flightMode='cursor';
+  document.getElementById('mc').classList.add('on');document.getElementById('mf').classList.remove('on');
+  document.getElementById('fc').style.display='none';
+});
+document.getElementById('mf').addEventListener('click',()=>{
+  flightMode='free';
+  document.getElementById('mf').classList.add('on');document.getElementById('mc').classList.remove('on');
+  document.getElementById('fc').style.display='block';
+});
+
+// canvas size
+function clearChips(){document.querySelectorAll('.chip').forEach(b=>b.classList.remove('on'));}
+document.getElementById('card-w').addEventListener('input',function(){document.getElementById('card-w-val').textContent=this.value;clearChips();resizeCanvas(+this.value,H);spawnBirds();fitCanvas();});
+document.getElementById('card-h').addEventListener('input',function(){document.getElementById('card-h-val').textContent=this.value;clearChips();resizeCanvas(W,+this.value);spawnBirds();fitCanvas();});
+document.querySelectorAll('.chip').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    clearChips();btn.classList.add('on');
+    const w=+btn.dataset.w,h=+btn.dataset.h;
+    W=w;H=h;canvas.width=W;canvas.height=H;
+    document.getElementById('card-w').value=Math.min(w,1200);document.getElementById('card-h').value=Math.min(h,1200);
+    document.getElementById('card-w-val').textContent=w;document.getElementById('card-h-val').textContent=h;
+    spawnBirds();fitCanvas();
+  });
+});
+
+// direction wheel
+const dirWheel=document.getElementById('dirwheel');
+const dwc=dirWheel.getContext('2d');
+const DW=90,DR=32;
+function drawWheel(){
+  const light=document.body.classList.contains('light');
+  const rc=light?'#ccc':'#282828',tc2=light?'#aaa':'#333';
+  const ac=light?'#111':'#ccc',lc=light?'#999':'#444';
+  dwc.clearRect(0,0,DW,DW);
+  const cx=DW/2,cy=DW/2;
+  dwc.beginPath();dwc.arc(cx,cy,DR,0,Math.PI*2);
+  dwc.fillStyle=light?'#e8e8e8':'#111';dwc.fill();
+  dwc.strokeStyle=rc;dwc.lineWidth=1;dwc.stroke();
+  for(let a=0;a<Math.PI*2;a+=Math.PI/4){
+    dwc.beginPath();
+    dwc.moveTo(cx+Math.cos(a)*(DR-6),cy+Math.sin(a)*(DR-6));
+    dwc.lineTo(cx+Math.cos(a)*(DR-1),cy+Math.sin(a)*(DR-1));
+    dwc.strokeStyle=tc2;dwc.lineWidth=1;dwc.stroke();
+  }
+  dwc.fillStyle=lc;dwc.font="7px 'Courier New',monospace";dwc.textAlign='center';dwc.textBaseline='middle';
+  dwc.fillText('N',cx,cy-DR+10);dwc.fillText('S',cx,cy+DR-10);
+  dwc.fillText('E',cx+DR-10,cy);dwc.fillText('W',cx-DR+10,cy);
+  const ax=cx+Math.cos(flightAngle)*(DR-9),ay=cy+Math.sin(flightAngle)*(DR-9);
+  dwc.beginPath();dwc.moveTo(cx,cy);dwc.lineTo(ax,ay);
+  dwc.strokeStyle=ac;dwc.lineWidth=1.5;dwc.stroke();
+  dwc.beginPath();dwc.arc(ax,ay,3.5,0,Math.PI*2);dwc.fillStyle=ac;dwc.fill();
+  dwc.beginPath();dwc.arc(cx,cy,2.5,0,Math.PI*2);dwc.fillStyle=light?'#bbb':'#444';dwc.fill();
+}
+drawWheel();
+let wd=false;
+function hw(e){
+  e.preventDefault();
+  const rect=dirWheel.getBoundingClientRect();
+  const mx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left-DW/2;
+  const my=(e.touches?e.touches[0].clientY:e.clientY)-rect.top-DW/2;
+  flightAngle=Math.atan2(my,mx);drawWheel();
+}
+dirWheel.addEventListener('mousedown',e=>{wd=true;hw(e);});
+window.addEventListener('mousemove',e=>{if(wd)hw(e);});
+window.addEventListener('mouseup',()=>wd=false);
+dirWheel.addEventListener('touchstart',e=>hw(e),{passive:false});
+dirWheel.addEventListener('touchmove',e=>hw(e),{passive:false});
+
+// bg image
+const bgDrop=document.getElementById('bgdrop'),bgFile=document.getElementById('bgfile');
+function loadBg(file){const img=new Image();img.onload=()=>{bgImage=img;document.getElementById('bgname').textContent='✓ '+file.name;};img.src=URL.createObjectURL(file);}
+bgDrop.addEventListener('dragover',e=>{e.preventDefault();bgDrop.classList.add('ov');});
+bgDrop.addEventListener('dragleave',()=>bgDrop.classList.remove('ov'));
+bgDrop.addEventListener('drop',e=>{e.preventDefault();bgDrop.classList.remove('ov');const f=e.dataTransfer.files[0];if(f)loadBg(f);});
+bgFile.addEventListener('change',e=>{if(e.target.files[0])loadBg(e.target.files[0]);});
+document.getElementById('bg-fit').addEventListener('change',e=>bgFit=e.target.value);
+document.getElementById('bg-opacity').addEventListener('input',function(){document.getElementById('bg-opacity-val').textContent=this.value+'%';bgImgOpacity=this.value/100;});
+document.getElementById('bg-clear').addEventListener('click',()=>{bgImage=null;document.getElementById('bgname').textContent='';bgFile.value='';});
+
+// ── Gradient controls ─────────────────────────────────────────────────────
+function renderStops(){
+  const container=document.getElementById('grad-stops');
+  container.innerHTML='';
+  gradStops.forEach((s,i)=>{
+    const row=document.createElement('div');
+    row.className='grad-stop-row';
+    row.innerHTML=`
+      <input type="color" value="${s.color}" data-i="${i}">
+      <input type="range" min="0" max="100" value="${s.pos}" data-i="${i}" style="flex:1">
+      <span class="stop-pct">${s.pos}%</span>
+      <button class="del-stop" data-i="${i}" title="Remove">✕</button>`;
+    // color change
+    row.querySelector('input[type=color]').addEventListener('input',e=>{
+      gradStops[+e.target.dataset.i].color=e.target.value;
+    });
+    // position change
+    const rangeEl=row.querySelector('input[type=range]');
+    rangeEl.addEventListener('input',e=>{
+      const idx=+e.target.dataset.i;
+      gradStops[idx].pos=+e.target.value;
+      row.querySelector('.stop-pct').textContent=e.target.value+'%';
+    });
+    // delete
+    row.querySelector('.del-stop').addEventListener('click',e=>{
+      const idx=+e.target.dataset.i;
+      if(gradStops.length<=2)return; // minimum 2 stops
+      gradStops.splice(idx,1);
+      renderStops();
+    });
+    container.appendChild(row);
+  });
+  // hide add button when at max 5
+  document.getElementById('grad-add').style.display=gradStops.length>=5?'none':'block';
+}
+
+document.getElementById('bg-solid-btn').addEventListener('click',()=>{
+  bgMode='solid';
+  document.getElementById('bg-solid-btn').classList.add('on');
+  document.getElementById('bg-grad-btn').classList.remove('on');
+  document.getElementById('solid-controls').style.display='block';
+  document.getElementById('grad-controls').style.display='none';
+});
+document.getElementById('bg-grad-btn').addEventListener('click',()=>{
+  bgMode='gradient';
+  document.getElementById('bg-grad-btn').classList.add('on');
+  document.getElementById('bg-solid-btn').classList.remove('on');
+  document.getElementById('solid-controls').style.display='none';
+  document.getElementById('grad-controls').style.display='block';
+  renderStops();
+});
+document.getElementById('grad-dir').addEventListener('change',e=>gradDir=e.target.value);
+document.getElementById('grad-add').addEventListener('click',()=>{
+  if(gradStops.length>=5)return;
+  gradStops.push({color:'#888888',pos:Math.round(gradStops[gradStops.length-1].pos/2+50)});
+  renderStops();
+});
+bind('bg-noise','bg-noise-val','%',v=>{bgNoise=v/100;noiseDirty=true;});
+
+// ── Inline MP4 muxer — no external dependencies ───────────────────────────
+// Writes a minimal but fully valid ISO Base Media File (MP4) from raw
+// H.264 Annex-B encoded chunks produced by WebCodecs VideoEncoder.
+const MP4 = (() => {
+  const e32 = (v, b, o) => { b[o]=v>>>24;b[o+1]=(v>>>16)&0xff;b[o+2]=(v>>>8)&0xff;b[o+3]=v&0xff; };
+  const e16 = (v, b, o) => { b[o]=(v>>>8)&0xff;b[o+1]=v&0xff; };
+  function box(type, ...children) {
+    const name = new TextEncoder().encode(type);
+    let size = 8;
+    const parts = [];
+    for (const c of children) {
+      const u = c instanceof Uint8Array ? c : new Uint8Array(c);
+      parts.push(u); size += u.byteLength;
+    }
+    const buf = new Uint8Array(size);
+    e32(size, buf, 0); buf.set(name, 4);
+    let off = 8;
+    for (const p of parts) { buf.set(p, off); off += p.byteLength; }
+    return buf;
+  }
+  function u8(...bytes) { return new Uint8Array(bytes); }
+  function u32(v) { const b=new Uint8Array(4); e32(v,b,0); return b; }
+  function u16(v) { const b=new Uint8Array(2); e16(v,b,0); return b; }
+  function str(s) { return new TextEncoder().encode(s); }
+  function concat(...arrs) {
+    let n=0; for(const a of arrs) n+=a.byteLength;
+    const out=new Uint8Array(n); let o=0;
+    for(const a of arrs){out.set(a,o);o+=a.byteLength;} return out;
+  }
+
+  return {
+    build(frames, fps, width, height) {
+      // frames: [{data:Uint8Array, key:bool, dts:number, pts:number}] all in timescale units
+      const TIMESCALE = 90000;
+      const frameDur  = Math.round(TIMESCALE / fps);
+
+      // ── mdat ──
+      // Each NAL unit wrapped in 4-byte length prefix (AVCC style)
+      const mdatParts = [];
+      const sampleSizes = [];
+      for (const f of frames) {
+        // Convert Annex-B (00 00 00 01 ...) to AVCC (length-prefixed)
+        const avcc = annexBtoAVCC(f.data);
+        mdatParts.push(avcc);
+        sampleSizes.push(avcc.byteLength);
+      }
+      const mdatPayload = concat(...mdatParts);
+      const mdatBox = box('mdat', mdatPayload);
+
+      // ── moov ──
+      const duration = frames.length * frameDur;
+
+      // mvhd
+      const mvhd = box('mvhd',
+        u8(0,0,0,0),          // version+flags
+        u32(0), u32(0),       // creation, modification time
+        u32(TIMESCALE),       // timescale
+        u32(duration),        // duration
+        u8(0,1,0,0),          // rate 1.0
+        u8(1,0),              // volume 1.0
+        new Uint8Array(70),   // reserved + matrix (identity filled below) + pre_defined
+        u32(2),               // next_track_id
+      );
+      // patch identity matrix into mvhd at offset 8+8+4+4+4+2+10 = 44 bytes in
+      // (simpler: browsers are lenient, zeros are fine for matrix)
+
+      // tkhd
+      const tkhd = box('tkhd',
+        u8(0,0,0,3),          // version=0, flags=track_enabled|track_in_movie
+        u32(0), u32(0),       // creation, modification
+        u32(1),               // track_id
+        u32(0),               // reserved
+        u32(duration),
+        new Uint8Array(8),    // reserved
+        u16(0), u16(0),       // layer, alternate_group
+        u8(0,0),              // volume (video = 0)
+        u8(0,0),              // reserved
+        // identity matrix
+        u8(0,1,0,0, 0,0,0,0, 0,0,0,0,
+           0,0,0,0, 0,1,0,0, 0,0,0,0,
+           0,0,0,0, 0,0,0,0, 0x40,0,0,0),
+        u32(width<<16),       // width (16.16 fixed)
+        u32(height<<16),      // height
+      );
+
+      // mdhd
+      const mdhd = box('mdhd',
+        u8(0,0,0,0),
+        u32(0), u32(0),
+        u32(TIMESCALE),
+        u32(duration),
+        u16(0x55c4),          // language = 'und'
+        u16(0),
+      );
+
+      // hdlr
+      const hdlr = box('hdlr',
+        u8(0,0,0,0),
+        u32(0),               // pre_defined
+        str('vide'),          // handler_type
+        u32(0),u32(0),u32(0), // reserved
+        u8(0),                // name (null term)
+      );
+
+      // vmhd
+      const vmhd = box('vmhd', u8(0,0,0,1), u8(0,0,0,0,0,0,0,0));
+
+      // dinf / dref / url
+      const url  = box('url ', u8(0,0,0,1)); // self-contained
+      const dref = box('dref', u8(0,0,0,0), u32(1), url);
+      const dinf = box('dinf', dref);
+
+      // stbl components
+      // stsd → avc1 → avcC
+      // We need the SPS and PPS from the first key frame
+      const {sps, pps} = extractSPSPPS(frames[0].data);
+      const avcC = buildAVCC(sps, pps);
+      const avc1 = box('avc1',
+        new Uint8Array(6),    // reserved
+        u16(1),               // data_reference_index
+        new Uint8Array(16),   // pre_defined + reserved
+        u16(width), u16(height),
+        u8(0,72,0,0),         // horiz resolution 72dpi
+        u8(0,72,0,0),         // vert resolution
+        u32(0),               // reserved
+        u16(1),               // frame_count
+        new Uint8Array(32),   // compressorname
+        u16(0x18),            // depth
+        u16(0xffff),          // pre_defined
+        avcC,
+      );
+      const stsd = box('stsd', u8(0,0,0,0), u32(1), avc1);
+
+      // stts — run-length of frame durations (all same)
+      const stts = box('stts',
+        u8(0,0,0,0),
+        u32(1),               // entry_count
+        u32(frames.length),   // sample_count
+        u32(frameDur),        // sample_delta
+      );
+
+      // stss — sync (key) frame indices (1-based)
+      const keyIdxs = [];
+      frames.forEach((f,i)=>{ if(f.key) keyIdxs.push(i+1); });
+      const stss = box('stss',
+        u8(0,0,0,0),
+        u32(keyIdxs.length),
+        ...keyIdxs.map(u32),
+      );
+
+      // stsz — sample sizes
+      const stsz = box('stsz',
+        u8(0,0,0,0),
+        u32(0),               // sample_size (0 = variable)
+        u32(sampleSizes.length),
+        ...sampleSizes.map(u32),
+      );
+
+      // stsc — sample-to-chunk (all in one chunk)
+      const stsc = box('stsc',
+        u8(0,0,0,0),
+        u32(1),               // entry_count
+        u32(1),               // first_chunk
+        u32(frames.length),   // samples_per_chunk
+        u32(1),               // sample_description_index
+      );
+
+      // stco — chunk offsets (mdat starts after moov)
+      // We'll patch this after computing moov size
+      const stcoPlaceholder = box('stco',
+        u8(0,0,0,0),
+        u32(1),               // entry_count
+        u32(0xDEADBEEF),      // placeholder, patched below
+      );
+
+      const stbl = box('stbl', stsd, stts, stss, stsz, stsc, stcoPlaceholder);
+      const minf = box('minf', vmhd, dinf, stbl);
+      const mdia = box('mdia', mdhd, hdlr, minf);
+      const trak = box('trak', tkhd, mdia);
+      const moov = box('moov', mvhd, trak);
+
+      // Patch stco: mdat comes right after moov
+      const moovSize = moov.byteLength;
+      const stcoOffset = findStcoOffset(moov);
+      e32(moovSize + 8, moov, stcoOffset); // +8 for mdat box header
+
+      return concat(moov, mdatBox);
+    }
+  };
+
+  function annexBtoAVCC(data) {
+    // Split on start codes 00 00 00 01 or 00 00 01, wrap each NAL in 4-byte length
+    const nalus = splitNALUs(data);
+    const parts = nalus.map(n => {
+      const out = new Uint8Array(4 + n.byteLength);
+      e32(n.byteLength, out, 0);
+      out.set(n, 4);
+      return out;
+    });
+    return concat(...parts);
+  }
+
+  function splitNALUs(data) {
+    const nalus = [];
+    let start = -1;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i]===0 && data[i+1]===0 && data[i+2]===0 && data[i+3]===1) {
+        if (start >= 0) nalus.push(data.slice(start, i));
+        start = i + 4; i += 3;
+      } else if (data[i]===0 && data[i+1]===0 && data[i+2]===1) {
+        if (start >= 0) nalus.push(data.slice(start, i));
+        start = i + 3; i += 2;
+      }
+    }
+    if (start >= 0) nalus.push(data.slice(start));
+    return nalus.filter(n => n.byteLength > 0);
+  }
+
+  function extractSPSPPS(keyFrameData) {
+    const nalus = splitNALUs(keyFrameData);
+    let sps = null, pps = null;
+    for (const n of nalus) {
+      const type = n[0] & 0x1f;
+      if (type === 7 && !sps) sps = n;
+      if (type === 8 && !pps) pps = n;
+    }
+    return { sps: sps || new Uint8Array([0x67,0x42,0xC0,0x1E,0xD9,0x00,0xA0,0x47,0xFE,0xC8]), pps: pps || new Uint8Array([0x68,0xCE,0x38,0x80]) };
+  }
+
+  function buildAVCC(sps, pps) {
+    return box('avcC',
+      u8(1),                // configurationVersion
+      u8(sps[1]),           // AVCProfileIndication
+      u8(sps[2]),           // profile_compatibility
+      u8(sps[3]),           // AVCLevelIndication
+      u8(0xff),             // lengthSizeMinusOne = 3
+      u8(0xe1),             // numSequenceParameterSets = 1
+      u16(sps.byteLength),
+      sps,
+      u8(1),                // numPictureParameterSets = 1
+      u16(pps.byteLength),
+      pps,
+    );
+  }
+
+  function findStcoOffset(moov) {
+    // Walk the box tree to find where stco chunk_offset[0] is
+    const dv = new DataView(moov.buffer, moov.byteOffset, moov.byteLength);
+    function walk(off, end) {
+      while (off < end) {
+        const size = dv.getUint32(off);
+        const type = String.fromCharCode(dv.getUint8(off+4),dv.getUint8(off+5),dv.getUint8(off+6),dv.getUint8(off+7));
+        if (type === 'stco') return off + 8 + 4 + 4; // skip box header + version/flags + entry_count
+        if (['moov','trak','mdia','minf','stbl'].includes(type)) {
+          const r = walk(off+8, off+size);
+          if (r >= 0) return r;
+        }
+        off += size;
+      }
+      return -1;
+    }
+    return walk(0, moov.byteLength);
+  }
+})();
+
+// ── Recording ─────────────────────────────────────────────────────────────
+const recBtn=document.getElementById('rec-btn'),recStatus=document.getElementById('rec-status');
+let recActive=false;
+recBtn.addEventListener('click',()=>{if(!recActive)startRec();});
+
+function dlBlob(blob,name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+
+async function startRec(){
+  const durSec=parseFloat(document.getElementById('rec-dur').value);
+  const durMs=durSec*1000;
+  const FPS=30;
+  const totalFrames=Math.ceil(FPS*durSec);
+
+  recActive=true;
+  recBtn.classList.add('act');recBtn.textContent='● Recording…';
+
+  // Cursor animation
+  const cx=W/2,cy=H/2,st=performance.now();
+  function animCursor(now){
+    if(!recActive)return;
+    const t=(now-st)/durMs,a=t*Math.PI*3;
+    targetX=cx+Math.cos(a*.55)*W*.35;
+    targetY=cy+Math.sin(a*.37)*H*.3;
+    requestAnimationFrame(animCursor);
+  }
+  requestAnimationFrame(animCursor);
+
+  // ── WebCodecs path — true MP4 ──────────────────────────────────────────
+  if(typeof VideoEncoder!=='undefined'){
+    try{
+      const encW=W%2?W-1:W, encH=H%2?H-1:H;
+      const frames=[];
+      let configured=false;
+
+      const encoder=new VideoEncoder({
+        output:(chunk,meta)=>{
+          const data=new Uint8Array(chunk.byteLength);
+          chunk.copyTo(data);
+          frames.push({data, key:chunk.type==='key',
+            dts:chunk.timestamp, pts:chunk.timestamp});
+          // grab SPS/PPS from decoderConfig if present
+          if(meta?.decoderConfig?.description){
+            frames[frames.length-1].decoderConfig=meta.decoderConfig;
+          }
+        },
+        error:e=>{throw e;}
+      });
+
+      encoder.configure({
+        codec:'avc1.42E01E',
+        width:encW, height:encH,
+        bitrate:8_000_000,
+        framerate:FPS,
+        avc:{format:'annexb'}
+      });
+
+      // Capture frames
+      const tmp=document.createElement('canvas');
+      tmp.width=encW; tmp.height=encH;
+      const tc=tmp.getContext('2d');
+
+      await new Promise((resolve,reject)=>{
+        let fi=0;
+        function cf(){
+          if(fi>=totalFrames){resolve();return;}
+          tc.drawImage(canvas,0,0,encW,encH);
+          const vf=new VideoFrame(tmp,{
+            timestamp:Math.round(fi*(1e6/FPS)),
+            duration:Math.round(1e6/FPS)
+          });
+          try{
+            encoder.encode(vf,{keyFrame:fi%60===0});
+          }catch(e){vf.close();reject(e);return;}
+          vf.close();
+          fi++;
+          recStatus.textContent=`${fi} / ${totalFrames} frames`;
+          requestAnimationFrame(cf);
+        }
+        requestAnimationFrame(cf);
+      });
+
+      recStatus.textContent='⏳ Encoding…';
+      await encoder.flush();
+      encoder.close();
+
+      recStatus.textContent='⏳ Building MP4…';
+      const mp4=MP4.build(frames,FPS,encW,encH);
+      dlBlob(new Blob([mp4],{type:'video/mp4'}),'glyph-birds.mp4');
+      recStatus.textContent='✓ MP4 downloaded!';
+      recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record MP4';
+      return;
+
+    }catch(err){
+      console.warn('WebCodecs MP4 failed:',err);
+      recStatus.textContent='⚠ Falling back to WebM…';
+    }
+  }
+
+  // ── Fallback: MediaRecorder → WebM ────────────────────────────────────
+  recStatus.textContent=`Recording ${durSec}s…`;
+  const chunks=[];
+  const stream=canvas.captureStream(FPS);
+  const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+    ?'video/webm;codecs=vp9':'video/webm';
+  const mr=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12_000_000});
+  mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  mr.onstop=()=>{
+    recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record MP4';
+    dlBlob(new Blob(chunks,{type:'video/webm'}),'glyph-birds.webm');
+    recStatus.textContent='✓ Saved as WebM (Chrome required for MP4)';
+  };
+  mr.start(100);
+  setTimeout(()=>{if(mr.state!=='inactive')mr.stop();},durMs);
+}
+
+resizeCanvas(700,500);
+smoothCX=targetX=W/2;smoothCY=targetY=H/2;
+spawnBirds();fitCanvas();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
