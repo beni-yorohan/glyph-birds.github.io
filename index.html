@@ -349,7 +349,21 @@ select option{background:var(--surface);}
     <div class="exsec">
       <div class="sh">Export</div>
       <div class="row"><span class="lbl">Duration</span><input type="range" id="rec-dur" min="2" max="30" value="6"><span class="val" id="rec-dur-val">6s</span></div>
-      <button id="rec-btn">⏺ Record MP4</button>
+      <div class="row"><span class="lbl">Format</span>
+        <select id="rec-fmt">
+          <option value="mp4">MP4 — H.264</option>
+          <option value="webm-vp9">WebM — VP9</option>
+          <option value="webm-vp8">WebM — VP8</option>
+        </select>
+      </div>
+      <div class="row"><span class="lbl">Quality</span>
+        <select id="rec-quality">
+          <option value="high">High — 25 Mbps</option>
+          <option value="med" selected>Medium — 12 Mbps</option>
+          <option value="low">Low — 5 Mbps</option>
+        </select>
+      </div>
+      <button id="rec-btn">⏺ Record</button>
       <div id="rec-status"></div>
     </div>
     <div class="tips">
@@ -796,270 +810,6 @@ document.getElementById('grad-add').addEventListener('click',()=>{
 });
 bind('bg-noise','bg-noise-val','%',v=>{bgNoise=v/100;noiseDirty=true;});
 
-// ── Inline MP4 muxer — no external dependencies ───────────────────────────
-// Writes a minimal but fully valid ISO Base Media File (MP4) from raw
-// H.264 Annex-B encoded chunks produced by WebCodecs VideoEncoder.
-const MP4 = (() => {
-  const e32 = (v, b, o) => { b[o]=v>>>24;b[o+1]=(v>>>16)&0xff;b[o+2]=(v>>>8)&0xff;b[o+3]=v&0xff; };
-  const e16 = (v, b, o) => { b[o]=(v>>>8)&0xff;b[o+1]=v&0xff; };
-  function box(type, ...children) {
-    const name = new TextEncoder().encode(type);
-    let size = 8;
-    const parts = [];
-    for (const c of children) {
-      const u = c instanceof Uint8Array ? c : new Uint8Array(c);
-      parts.push(u); size += u.byteLength;
-    }
-    const buf = new Uint8Array(size);
-    e32(size, buf, 0); buf.set(name, 4);
-    let off = 8;
-    for (const p of parts) { buf.set(p, off); off += p.byteLength; }
-    return buf;
-  }
-  function u8(...bytes) { return new Uint8Array(bytes); }
-  function u32(v) { const b=new Uint8Array(4); e32(v,b,0); return b; }
-  function u16(v) { const b=new Uint8Array(2); e16(v,b,0); return b; }
-  function str(s) { return new TextEncoder().encode(s); }
-  function concat(...arrs) {
-    let n=0; for(const a of arrs) n+=a.byteLength;
-    const out=new Uint8Array(n); let o=0;
-    for(const a of arrs){out.set(a,o);o+=a.byteLength;} return out;
-  }
-
-  return {
-    build(frames, fps, width, height) {
-      // frames: [{data:Uint8Array, key:bool, dts:number, pts:number}] all in timescale units
-      const TIMESCALE = 90000;
-      const frameDur  = Math.round(TIMESCALE / fps);
-
-      // ── mdat ──
-      // Each NAL unit wrapped in 4-byte length prefix (AVCC style)
-      const mdatParts = [];
-      const sampleSizes = [];
-      for (const f of frames) {
-        // Convert Annex-B (00 00 00 01 ...) to AVCC (length-prefixed)
-        const avcc = annexBtoAVCC(f.data);
-        mdatParts.push(avcc);
-        sampleSizes.push(avcc.byteLength);
-      }
-      const mdatPayload = concat(...mdatParts);
-      const mdatBox = box('mdat', mdatPayload);
-
-      // ── moov ──
-      const duration = frames.length * frameDur;
-
-      // mvhd
-      const mvhd = box('mvhd',
-        u8(0,0,0,0),          // version+flags
-        u32(0), u32(0),       // creation, modification time
-        u32(TIMESCALE),       // timescale
-        u32(duration),        // duration
-        u8(0,1,0,0),          // rate 1.0
-        u8(1,0),              // volume 1.0
-        new Uint8Array(70),   // reserved + matrix (identity filled below) + pre_defined
-        u32(2),               // next_track_id
-      );
-      // patch identity matrix into mvhd at offset 8+8+4+4+4+2+10 = 44 bytes in
-      // (simpler: browsers are lenient, zeros are fine for matrix)
-
-      // tkhd
-      const tkhd = box('tkhd',
-        u8(0,0,0,3),          // version=0, flags=track_enabled|track_in_movie
-        u32(0), u32(0),       // creation, modification
-        u32(1),               // track_id
-        u32(0),               // reserved
-        u32(duration),
-        new Uint8Array(8),    // reserved
-        u16(0), u16(0),       // layer, alternate_group
-        u8(0,0),              // volume (video = 0)
-        u8(0,0),              // reserved
-        // identity matrix
-        u8(0,1,0,0, 0,0,0,0, 0,0,0,0,
-           0,0,0,0, 0,1,0,0, 0,0,0,0,
-           0,0,0,0, 0,0,0,0, 0x40,0,0,0),
-        u32(width<<16),       // width (16.16 fixed)
-        u32(height<<16),      // height
-      );
-
-      // mdhd
-      const mdhd = box('mdhd',
-        u8(0,0,0,0),
-        u32(0), u32(0),
-        u32(TIMESCALE),
-        u32(duration),
-        u16(0x55c4),          // language = 'und'
-        u16(0),
-      );
-
-      // hdlr
-      const hdlr = box('hdlr',
-        u8(0,0,0,0),
-        u32(0),               // pre_defined
-        str('vide'),          // handler_type
-        u32(0),u32(0),u32(0), // reserved
-        u8(0),                // name (null term)
-      );
-
-      // vmhd
-      const vmhd = box('vmhd', u8(0,0,0,1), u8(0,0,0,0,0,0,0,0));
-
-      // dinf / dref / url
-      const url  = box('url ', u8(0,0,0,1)); // self-contained
-      const dref = box('dref', u8(0,0,0,0), u32(1), url);
-      const dinf = box('dinf', dref);
-
-      // stbl components
-      // stsd → avc1 → avcC
-      // We need the SPS and PPS from the first key frame
-      const {sps, pps} = extractSPSPPS(frames[0].data);
-      const avcC = buildAVCC(sps, pps);
-      const avc1 = box('avc1',
-        new Uint8Array(6),    // reserved
-        u16(1),               // data_reference_index
-        new Uint8Array(16),   // pre_defined + reserved
-        u16(width), u16(height),
-        u8(0,72,0,0),         // horiz resolution 72dpi
-        u8(0,72,0,0),         // vert resolution
-        u32(0),               // reserved
-        u16(1),               // frame_count
-        new Uint8Array(32),   // compressorname
-        u16(0x18),            // depth
-        u16(0xffff),          // pre_defined
-        avcC,
-      );
-      const stsd = box('stsd', u8(0,0,0,0), u32(1), avc1);
-
-      // stts — run-length of frame durations (all same)
-      const stts = box('stts',
-        u8(0,0,0,0),
-        u32(1),               // entry_count
-        u32(frames.length),   // sample_count
-        u32(frameDur),        // sample_delta
-      );
-
-      // stss — sync (key) frame indices (1-based)
-      const keyIdxs = [];
-      frames.forEach((f,i)=>{ if(f.key) keyIdxs.push(i+1); });
-      const stss = box('stss',
-        u8(0,0,0,0),
-        u32(keyIdxs.length),
-        ...keyIdxs.map(u32),
-      );
-
-      // stsz — sample sizes
-      const stsz = box('stsz',
-        u8(0,0,0,0),
-        u32(0),               // sample_size (0 = variable)
-        u32(sampleSizes.length),
-        ...sampleSizes.map(u32),
-      );
-
-      // stsc — sample-to-chunk (all in one chunk)
-      const stsc = box('stsc',
-        u8(0,0,0,0),
-        u32(1),               // entry_count
-        u32(1),               // first_chunk
-        u32(frames.length),   // samples_per_chunk
-        u32(1),               // sample_description_index
-      );
-
-      // stco — chunk offsets (mdat starts after moov)
-      // We'll patch this after computing moov size
-      const stcoPlaceholder = box('stco',
-        u8(0,0,0,0),
-        u32(1),               // entry_count
-        u32(0xDEADBEEF),      // placeholder, patched below
-      );
-
-      const stbl = box('stbl', stsd, stts, stss, stsz, stsc, stcoPlaceholder);
-      const minf = box('minf', vmhd, dinf, stbl);
-      const mdia = box('mdia', mdhd, hdlr, minf);
-      const trak = box('trak', tkhd, mdia);
-      const moov = box('moov', mvhd, trak);
-
-      // Patch stco: mdat comes right after moov
-      const moovSize = moov.byteLength;
-      const stcoOffset = findStcoOffset(moov);
-      e32(moovSize + 8, moov, stcoOffset); // +8 for mdat box header
-
-      return concat(moov, mdatBox);
-    }
-  };
-
-  function annexBtoAVCC(data) {
-    // Split on start codes 00 00 00 01 or 00 00 01, wrap each NAL in 4-byte length
-    const nalus = splitNALUs(data);
-    const parts = nalus.map(n => {
-      const out = new Uint8Array(4 + n.byteLength);
-      e32(n.byteLength, out, 0);
-      out.set(n, 4);
-      return out;
-    });
-    return concat(...parts);
-  }
-
-  function splitNALUs(data) {
-    const nalus = [];
-    let start = -1;
-    for (let i = 0; i < data.length; i++) {
-      if (data[i]===0 && data[i+1]===0 && data[i+2]===0 && data[i+3]===1) {
-        if (start >= 0) nalus.push(data.slice(start, i));
-        start = i + 4; i += 3;
-      } else if (data[i]===0 && data[i+1]===0 && data[i+2]===1) {
-        if (start >= 0) nalus.push(data.slice(start, i));
-        start = i + 3; i += 2;
-      }
-    }
-    if (start >= 0) nalus.push(data.slice(start));
-    return nalus.filter(n => n.byteLength > 0);
-  }
-
-  function extractSPSPPS(keyFrameData) {
-    const nalus = splitNALUs(keyFrameData);
-    let sps = null, pps = null;
-    for (const n of nalus) {
-      const type = n[0] & 0x1f;
-      if (type === 7 && !sps) sps = n;
-      if (type === 8 && !pps) pps = n;
-    }
-    return { sps: sps || new Uint8Array([0x67,0x42,0xC0,0x1E,0xD9,0x00,0xA0,0x47,0xFE,0xC8]), pps: pps || new Uint8Array([0x68,0xCE,0x38,0x80]) };
-  }
-
-  function buildAVCC(sps, pps) {
-    return box('avcC',
-      u8(1),                // configurationVersion
-      u8(sps[1]),           // AVCProfileIndication
-      u8(sps[2]),           // profile_compatibility
-      u8(sps[3]),           // AVCLevelIndication
-      u8(0xff),             // lengthSizeMinusOne = 3
-      u8(0xe1),             // numSequenceParameterSets = 1
-      u16(sps.byteLength),
-      sps,
-      u8(1),                // numPictureParameterSets = 1
-      u16(pps.byteLength),
-      pps,
-    );
-  }
-
-  function findStcoOffset(moov) {
-    // Walk the box tree to find where stco chunk_offset[0] is
-    const dv = new DataView(moov.buffer, moov.byteOffset, moov.byteLength);
-    function walk(off, end) {
-      while (off < end) {
-        const size = dv.getUint32(off);
-        const type = String.fromCharCode(dv.getUint8(off+4),dv.getUint8(off+5),dv.getUint8(off+6),dv.getUint8(off+7));
-        if (type === 'stco') return off + 8 + 4 + 4; // skip box header + version/flags + entry_count
-        if (['moov','trak','mdia','minf','stbl'].includes(type)) {
-          const r = walk(off+8, off+size);
-          if (r >= 0) return r;
-        }
-        off += size;
-      }
-      return -1;
-    }
-    return walk(0, moov.byteLength);
-  }
-})();
 
 // ── Recording ─────────────────────────────────────────────────────────────
 const recBtn=document.getElementById('rec-btn'),recStatus=document.getElementById('rec-status');
@@ -1072,20 +822,50 @@ function dlBlob(blob,name){
   a.href=url;a.download=name;
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+
+// Pick the best supported MIME for the requested format
+function resolveMime(fmt){
+  const candidates={
+    'mp4':[
+      'video/mp4;codecs=avc1',
+      'video/mp4;codecs=h264',
+      'video/mp4',
+    ],
+    'webm-vp9':[
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp9,opus',
+      'video/webm',
+    ],
+    'webm-vp8':[
+      'video/webm;codecs=vp8',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ],
+  };
+  for(const m of candidates[fmt]||candidates['webm-vp9']){
+    if(MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return 'video/webm';
+}
+
+function bitrateFor(q){
+  return {high:25_000_000, med:12_000_000, low:5_000_000}[q]||12_000_000;
 }
 
 async function startRec(){
   const durSec=parseFloat(document.getElementById('rec-dur').value);
-  const durMs=durSec*1000;
+  const fmt=document.getElementById('rec-fmt').value;
+  const quality=document.getElementById('rec-quality').value;
   const FPS=30;
-  const totalFrames=Math.ceil(FPS*durSec);
 
   recActive=true;
   recBtn.classList.add('act');recBtn.textContent='● Recording…';
 
-  // Cursor animation
+  // Animate cursor
   const cx=W/2,cy=H/2,st=performance.now();
+  const durMs=durSec*1000;
   function animCursor(now){
     if(!recActive)return;
     const t=(now-st)/durMs,a=t*Math.PI*3;
@@ -1095,90 +875,39 @@ async function startRec(){
   }
   requestAnimationFrame(animCursor);
 
-  // ── WebCodecs path — true MP4 ──────────────────────────────────────────
-  if(typeof VideoEncoder!=='undefined'){
-    try{
-      const encW=W%2?W-1:W, encH=H%2?H-1:H;
-      const frames=[];
-      let configured=false;
+  const mime=resolveMime(fmt);
+  const isMP4=mime.startsWith('video/mp4');
+  const ext=isMP4?'mp4':'webm';
+  const bitrate=bitrateFor(quality);
 
-      const encoder=new VideoEncoder({
-        output:(chunk,meta)=>{
-          const data=new Uint8Array(chunk.byteLength);
-          chunk.copyTo(data);
-          frames.push({data, key:chunk.type==='key',
-            dts:chunk.timestamp, pts:chunk.timestamp});
-          // grab SPS/PPS from decoderConfig if present
-          if(meta?.decoderConfig?.description){
-            frames[frames.length-1].decoderConfig=meta.decoderConfig;
-          }
-        },
-        error:e=>{throw e;}
-      });
+  recStatus.textContent=`Recording ${durSec}s — ${mime.split(';')[0].replace('video/','')}…`;
 
-      encoder.configure({
-        codec:'avc1.42E01E',
-        width:encW, height:encH,
-        bitrate:8_000_000,
-        framerate:FPS,
-        avc:{format:'annexb'}
-      });
-
-      // Capture frames
-      const tmp=document.createElement('canvas');
-      tmp.width=encW; tmp.height=encH;
-      const tc=tmp.getContext('2d');
-
-      await new Promise((resolve,reject)=>{
-        let fi=0;
-        function cf(){
-          if(fi>=totalFrames){resolve();return;}
-          tc.drawImage(canvas,0,0,encW,encH);
-          const vf=new VideoFrame(tmp,{
-            timestamp:Math.round(fi*(1e6/FPS)),
-            duration:Math.round(1e6/FPS)
-          });
-          try{
-            encoder.encode(vf,{keyFrame:fi%60===0});
-          }catch(e){vf.close();reject(e);return;}
-          vf.close();
-          fi++;
-          recStatus.textContent=`${fi} / ${totalFrames} frames`;
-          requestAnimationFrame(cf);
-        }
-        requestAnimationFrame(cf);
-      });
-
-      recStatus.textContent='⏳ Encoding…';
-      await encoder.flush();
-      encoder.close();
-
-      recStatus.textContent='⏳ Building MP4…';
-      const mp4=MP4.build(frames,FPS,encW,encH);
-      dlBlob(new Blob([mp4],{type:'video/mp4'}),'glyph-birds.mp4');
-      recStatus.textContent='✓ MP4 downloaded!';
-      recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record MP4';
-      return;
-
-    }catch(err){
-      console.warn('WebCodecs MP4 failed:',err);
-      recStatus.textContent='⚠ Falling back to WebM…';
-    }
-  }
-
-  // ── Fallback: MediaRecorder → WebM ────────────────────────────────────
-  recStatus.textContent=`Recording ${durSec}s…`;
   const chunks=[];
   const stream=canvas.captureStream(FPS);
-  const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-    ?'video/webm;codecs=vp9':'video/webm';
-  const mr=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12_000_000});
-  mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  let mr;
+
+  try{
+    mr=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:bitrate});
+  }catch(e){
+    // Requested mime rejected — fall back to plain webm
+    mr=new MediaRecorder(stream,{videoBitsPerSecond:bitrate});
+  }
+
+  mr.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data);};
+
   mr.onstop=()=>{
-    recActive=false;recBtn.classList.remove('act');recBtn.textContent='⏺ Record MP4';
-    dlBlob(new Blob(chunks,{type:'video/webm'}),'glyph-birds.webm');
-    recStatus.textContent='✓ Saved as WebM (Chrome required for MP4)';
+    recActive=false;
+    recBtn.classList.remove('act');recBtn.textContent='⏺ Record';
+
+    const actualMime=mr.mimeType||mime;
+    const actualExt=actualMime.startsWith('video/mp4')?'mp4':'webm';
+    const blob=new Blob(chunks,{type:actualMime});
+    const sizeMB=(blob.size/1_000_000).toFixed(1);
+
+    dlBlob(blob,`glyph-birds.${actualExt}`);
+    recStatus.textContent=`✓ ${actualExt.toUpperCase()} downloaded — ${sizeMB} MB`;
   };
+
   mr.start(100);
   setTimeout(()=>{if(mr.state!=='inactive')mr.stop();},durMs);
 }
